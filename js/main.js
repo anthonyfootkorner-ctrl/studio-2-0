@@ -232,7 +232,14 @@ const App = { state: {}, refreshLogoList: null };
       dims.className = "muted";
       dims.textContent = `${v.source.width} × ${v.source.height} px` +
         (i === 0 ? " — référence identité" : "") + (v.gen ? " — générée" : "");
-      box.append(nameInput, dims);
+      const flatLabel = document.createElement("label");
+      flatLabel.className = "inline flat";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!v.flat;
+      cb.addEventListener("change", () => { v.flat = cb.checked; Persist.saveSoon(); });
+      flatLabel.append(cb, document.createTextNode(" produit à plat (non porté)"));
+      box.append(nameInput, dims, flatLabel);
       const bDel = document.createElement("button");
       bDel.className = "btn ghost";
       bDel.textContent = "✕";
@@ -293,27 +300,40 @@ const App = { state: {}, refreshLogoList: null };
     return m ? +m[1] < 18 : false;
   }
 
-  function buildPrompt(withRef, extraNote) {
+  function buildPrompt(view, withRef, extraNote) {
     const desc = modelDescription() || "mannequin adulte au look neutre";
     const pose = el("m-pose").value.trim() || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
     const notes = el("m-notes").value.trim();
 
-    const lines = [
-      withRef
-        ? "Photo e-commerce studio. La première image est la photo produit à modifier (une autre vue du même produit : dos, profil ou autre angle). La seconde image est la vue de référence déjà générée du mannequin : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle). Le visage peut être peu visible selon l'angle, mais tout doit correspondre au même mannequin."
-        : "Photo e-commerce studio. Modifie cette photo produit.",
-      `Remplace le mannequin par : ${desc}.`,
-      `Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source. La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.`,
-      "Retire tous les accessoires visibles : lunettes, bijoux, montre, casquette, sac, écouteurs, gants et objets tenus."
+    const refPhrase = "La seconde image est la vue de référence déjà générée du mannequin : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle).";
+    const lines = [];
+    if (view.flat) {
+      // Photo à plat : on habille un mannequin, il n'y a pas de mannequin à remplacer.
+      lines.push(withRef
+        ? "Photo e-commerce studio. La première image montre le produit à plat, non porté. " + refPhrase
+        : "Photo e-commerce studio. Cette photo montre le produit à plat, non porté.");
+      lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
+      lines.push(`Pose : ${pose}. Tête entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus. Le panneau poitrine doit être bien face caméra, plat et sans distorsion.`);
+      lines.push("Reproduis EXACTEMENT le vêtement de la photo : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent de la photo.");
+      lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
+    } else {
+      lines.push(withRef
+        ? "Photo e-commerce studio. La première image est la photo produit à modifier (une autre vue du même produit : dos, profil ou autre angle). " + refPhrase + " Le visage peut être peu visible selon l'angle, mais tout doit correspondre au même mannequin."
+        : "Photo e-commerce studio. Modifie cette photo produit.");
+      lines.push(`Remplace le mannequin par : ${desc}.`);
+      lines.push(`Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source. La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.`);
+      lines.push("Retire tous les accessoires visibles : lunettes, bijoux, montre, casquette, sac, écouteurs, gants et objets tenus."
         + (acc ? ` Consigne spécifique : ${acc}.` : "")
-        + " Chaque membre qui touchait un accessoire retiré doit reprendre une pose naturelle et équilibrée.",
-      "Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.",
-      "Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.",
+        + " Chaque membre qui touchait un accessoire retiré doit reprendre une pose naturelle et équilibrée.");
+      lines.push("Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.");
+      lines.push("Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.");
+    }
+    lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement. Le textile doit être parfaitement vierge et continu, sans logo approximatif ni logo fantôme.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
       "Conserve le cadrage et le format de la photo source.",
-    ];
+    );
     if (isMinor()) {
       lines.push("Contexte : photo catalogue e-commerce de textile enfant/adolescent. Le mannequin mineur est entièrement habillé, dans une pose catalogue naturelle et sportive, avec une expression neutre adaptée à son âge. Aucune sexualisation, aucune pose suggestive, aucune mise en scène adulte. Cadrage commercial centré sur le produit.");
     }
@@ -357,7 +377,7 @@ const App = { state: {}, refreshLogoList: null };
         "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt: buildPrompt(!!ref, extraNote), images }),
+      body: JSON.stringify({ prompt: buildPrompt(view, !!ref, extraNote), images }),
     });
     const out = await resp.json();
     if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
@@ -468,6 +488,7 @@ const App = { state: {}, refreshLogoList: null };
     ctx.imageSmoothingEnabled = invZoom < 1;
     ctx.drawImage(src, 0, 0, c.width, c.height);
     for (const logo of App.state.logos) {
+      if (logo.external) continue; // pas de cadre : le logo ne vient pas de cette photo
       ctx.strokeStyle = logo.mask ? "#1a9a55" : "#d33d33";
       ctx.lineWidth = 2;
       ctx.strokeRect(logo.rect.x * invZoom, logo.rect.y * invZoom,
@@ -520,6 +541,11 @@ const App = { state: {}, refreshLogoList: null };
     });
     el("btn-zoom-in").addEventListener("click", () => { invZoom = Math.min(8, invZoom * 1.25); renderInventory(); });
     el("btn-zoom-out").addEventListener("click", () => { invZoom = Math.max(0.1, invZoom / 1.25); renderInventory(); });
+    el("btn-add-detail").addEventListener("click", () => el("file-detail").click());
+    el("file-detail").addEventListener("change", ev => {
+      Array.from(ev.target.files).forEach(addExternalLogoFile);
+      ev.target.value = "";
+    });
   }
 
   function createLogo(rect) {
@@ -546,6 +572,53 @@ const App = { state: {}, refreshLogoList: null };
     renderInventory();
   }
 
+  // Logo importé depuis une photo détail (packshot, gros plan) : détouré avec les
+  // mêmes pinceaux, posé sur le mannequin avec une taille initiale raisonnable.
+  function addExternalLogoFile(file) {
+    if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
+    const base = App.state.sourceCanvas;
+    if (!base) return;
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const maxDim = 1024; // assez pour un logo, évite de gonfler la sauvegarde locale
+      const sc = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * sc));
+      c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const imgData = ctx.getImageData(0, 0, c.width, c.height);
+      App.state.logoSeq++;
+      const initScale = Math.max(5, Math.min(300, Math.round((base.width * 0.22 / c.width) * 100)));
+      const logo = {
+        id: App.state.logoSeq,
+        name: "logo-détail-" + App.state.logoSeq,
+        external: true,
+        rect: { x: 0, y: 0, w: c.width, h: c.height },
+        imgData,
+        type: "print",
+        mask: null, cropCanvas: null, maskVersion: 0,
+        placement: {
+          x: Math.round(base.width * 0.39),
+          y: Math.round(base.height * 0.3),
+          scale: initScale, contract: 0, feather: 0,
+        },
+      };
+      App.state.logos.push(logo);
+      syncAliases();
+      Masking.open(logo, imgData, l => {
+        l.maskVersion++;
+        refreshLogoList();
+        renderViewSwitcher();
+        Persist.saveSoon();
+      });
+      refreshLogoList();
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
   function refreshLogoList() {
     const ul = el("logo-list");
     ul.innerHTML = "";
@@ -565,7 +638,8 @@ const App = { state: {}, refreshLogoList: null };
       });
       const dims = document.createElement("small");
       dims.className = "muted";
-      dims.textContent = logo.rect.w + "×" + logo.rect.h + " px";
+      dims.textContent = logo.rect.w + "×" + logo.rect.h + " px" +
+        (logo.external ? " — photo détail" : "");
       span.append(nameInput, dims);
       const state = document.createElement("span");
       state.className = "state " + (logo.mask ? "ok" : "todo");

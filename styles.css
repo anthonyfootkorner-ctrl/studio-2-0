@@ -377,6 +377,8 @@ input[type="range"] { cursor: ew-resize; }
 .views-list .name { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 0.88rem; }
 .views-list .name input { padding: 0.28rem 0.45rem; font-size: 0.9rem; margin: 0; max-width: 220px; }
 .views-list button { font-size: 0.85rem; padding: 0.28rem 0.55rem; }
+.views-list label.inline.flat { font-size: 0.8rem; color: var(--muted); }
+.views-list label.inline.flat input { width: auto; margin: 0; }
 
 .view-switcher {
   display: flex;

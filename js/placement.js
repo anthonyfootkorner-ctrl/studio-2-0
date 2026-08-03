@@ -53,19 +53,21 @@ const Placement = (() => {
     const sctx = srcC.getContext("2d");
     const dctx = dstC.getContext("2d");
     for (const logo of logos) {
-      // Cadre du logo dans la source.
-      sctx.strokeStyle = logo === selected ? "#3d82f6" : "#d0a030";
-      sctx.lineWidth = 2;
-      sctx.strokeRect(
-        logo.rect.x * displayScale, logo.rect.y * displayScale,
-        logo.rect.w * displayScale, logo.rect.h * displayScale
-      );
+      // Cadre du logo dans la source (sauf logo importé d'une photo détail).
+      if (!logo.external) {
+        sctx.strokeStyle = logo === selected ? "#ea580c" : "#d0a030";
+        sctx.lineWidth = 2;
+        sctx.strokeRect(
+          logo.rect.x * displayScale, logo.rect.y * displayScale,
+          logo.rect.w * displayScale, logo.rect.h * displayScale
+        );
+      }
       // Logo posé sur la cible.
       const r = placedRect(logo);
       dctx.drawImage(effectiveCanvas(logo),
         r.x * displayScale, r.y * displayScale, r.w * displayScale, r.h * displayScale);
       if (logo === selected) {
-        dctx.strokeStyle = "#3d82f6";
+        dctx.strokeStyle = "#ea580c";
         dctx.lineWidth = 1.5;
         dctx.strokeRect(r.x * displayScale - 2, r.y * displayScale - 2,
           r.w * displayScale + 4, r.h * displayScale + 4);
@@ -169,7 +171,7 @@ const Placement = (() => {
     dstC.addEventListener("wheel", ev => {
       if (!selected) return;
       ev.preventDefault();
-      const next = Math.max(25, Math.min(300, selected.placement.scale * (ev.deltaY < 0 ? 1.03 : 0.97)));
+      const next = Math.max(5, Math.min(300, selected.placement.scale * (ev.deltaY < 0 ? 1.03 : 0.97)));
       selected.placement.scale = next;
       el("sel-scale").value = next;
       el("sel-scale-label").textContent = Math.round(next) + " %";

@@ -54,6 +54,10 @@ const Persist = (() => {
   function serializeLogos(logos) {
     return (logos || []).map(l => ({
       id: l.id, name: l.name, rect: l.rect, type: l.type,
+      external: !!l.external,
+      // Un logo externe ne peut pas être re-découpé depuis la photo source :
+      // ses pixels sont sauvegardés avec lui (ImageData est clonable en IndexedDB).
+      imgData: l.external ? l.imgData : null,
       mask: l.mask ? new Uint8ClampedArray(l.mask) : null,
       maskVersion: l.maskVersion || 0,
       placement: { ...l.placement },
@@ -73,6 +77,7 @@ const Persist = (() => {
         views: await Promise.all(views.map(async v => ({
           id: v.id,
           name: v.name,
+          flat: !!v.flat,
           exported: !!v.exported,
           source: await canvasToBlob(v.source),
           gen: await canvasToBlob(v.gen),
@@ -122,10 +127,13 @@ const Persist = (() => {
       if (!source) continue;
       const ctx = source.getContext("2d");
       const logos = (d.logos || []).map(dl => {
-        const imgData = ctx.getImageData(dl.rect.x, dl.rect.y, dl.rect.w, dl.rect.h);
+        const imgData = dl.external && dl.imgData
+          ? dl.imgData
+          : ctx.getImageData(dl.rect.x, dl.rect.y, dl.rect.w, dl.rect.h);
         const mask = dl.mask ? new Uint8ClampedArray(dl.mask) : null;
         return {
           id: dl.id, name: dl.name, rect: dl.rect, type: dl.type,
+          external: !!dl.external,
           imgData, mask, maskVersion: dl.maskVersion,
           cropCanvas: mask ? Masking.buildCropCanvas(imgData, mask) : null,
           placement: { ...dl.placement },
@@ -134,6 +142,7 @@ const Persist = (() => {
       s.views.push({
         id: d.id,
         name: d.name,
+        flat: !!d.flat,
         exported: !!d.exported,
         source,
         gen: await blobToCanvas(d.gen),

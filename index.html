@@ -132,6 +132,9 @@
       <div class="col narrow">
         <h3>Marquages inventoriés</h3>
         <ul id="logo-list" class="logo-list"></ul>
+        <button id="btn-add-detail" class="btn big">＋ Logo depuis une photo détail</button>
+        <input type="file" id="file-detail" accept="image/png,image/jpeg,image/webp" hidden>
+        <p class="hint">Tu peux aussi importer une photo rapprochée du logo (à plat, packshot…) : elle sera détourée avec les mêmes pinceaux puis posée sur le mannequin.</p>
         <button id="btn-goto-placement" class="btn primary big" disabled>Tous les logos détourés → Placement</button>
       </div>
     </div>
@@ -186,7 +189,7 @@
         <h3 id="sel-title">Aucun logo sélectionné</h3>
         <div id="sel-controls" class="hidden">
           <label>Taille : <span id="sel-scale-label">100 %</span>
-            <input type="range" id="sel-scale" min="25" max="300" value="100">
+            <input type="range" id="sel-scale" min="5" max="300" value="100">
           </label>
           <label>Fusion du bord (halo)
             <select id="sel-edge">
