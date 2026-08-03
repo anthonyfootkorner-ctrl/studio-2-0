@@ -1,30 +1,69 @@
-// Studio Mannequin — orchestration : auth, wizard, génération Gemini, inventaire, export.
+// Studio 2.0 — orchestration : auth, file multi-vues, génération Gemini, inventaire, export.
+// Le projet est une liste de « vues » (face, dos, profil…). La première vue générée sert
+// de référence d'identité pour toutes les autres : même mannequin sur chaque photo.
 
 const App = { state: {}, refreshLogoList: null };
 
 (() => {
   const el = id => document.getElementById(id);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
+  let curStep = 1;
 
-  // ══════════ État ══════════
+  // ══════════ État : vues ══════════
+  // Vue = { id, name, source, gen, master, logos[], logoSeq, exported }
+  // App.state.sourceCanvas / genCanvas / logos / logoSeq sont des alias de la vue
+  // courante (lus par placement.js et masking.js). Ne jamais réassigner logos
+  // ailleurs que dans selectView — muter le tableau en place (push/splice).
 
-  function resetPhotoState(keepModel) {
+  function resetProject(keepModel) {
+    App.state.views = [];
+    App.state.cur = -1;
+    App.state.viewSeq = 0;
     App.state.sourceCanvas = null;
     App.state.genCanvas = null;
+    App.state.masterCanvas = null;
     App.state.logos = [];
     App.state.logoSeq = 0;
-    if (!keepModel) {
-      App.state.backMode = false;
-      App.state.faceRefCanvas = null;
-      el("form-model").reset();
-    }
-    el("canvas-source-preview").classList.add("hidden");
-    el("source-info").textContent = "";
-    el("btn-generate").disabled = true;
-    el("backref-banner").classList.toggle("hidden", !App.state.backMode);
+    if (!keepModel) el("form-model").reset();
     el("link-download").classList.add("hidden");
+    renderViewsList();
+    renderViewSwitcher();
+    refreshLogoList();
+    updateGenerateButton();
+  }
+
+  function currentView() {
+    return App.state.views[App.state.cur] || null;
+  }
+
+  function syncAliases() {
+    const v = currentView();
+    if (!v) return;
+    v.gen = App.state.genCanvas;
+    v.master = App.state.masterCanvas;
+    v.logos = App.state.logos;
+    v.logoSeq = App.state.logoSeq;
+  }
+
+  function selectView(i, opts) {
+    if (i === App.state.cur && !(opts && opts.force)) return;
+    syncAliases();
+    const v = App.state.views[i];
+    if (!v) return;
+    App.state.cur = i;
+    App.state.sourceCanvas = v.source;
+    App.state.genCanvas = v.gen;
+    App.state.masterCanvas = v.master;
+    App.state.logos = v.logos;
+    App.state.logoSeq = v.logoSeq;
+    el("canvas-inventory").dataset.fitted = "";
+    el("link-download").classList.add("hidden");
+    renderViewSwitcher();
     refreshLogoList();
   }
+
+  const slug = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
   // ══════════ Authentification ══════════
 
@@ -84,21 +123,60 @@ const App = { state: {}, refreshLogoList: null };
   // ══════════ Wizard ══════════
 
   function goStep(n) {
+    curStep = n;
     for (let i = 1; i <= 5; i++) el("step-" + i).classList.toggle("hidden", i !== n);
     $$("#stepper .step").forEach(s => {
       const k = +s.dataset.step;
       s.classList.toggle("active", k === n);
       s.classList.toggle("done", k < n);
     });
+    renderViewSwitcher();
+    if (n === 2) renderCompare();
     if (n === 3) renderInventory();
     if (n === 4) Placement.renderAll();
     if (n === 5) renderFinal();
     Persist.saveSoon();
   }
 
-  // ══════════ Étape 1 : source ══════════
+  // ══════════ Sélecteur de vues (étapes 2-5) ══════════
 
-  function loadSourceFile(file) {
+  function viewStateLabel(v) {
+    if (!v.gen) return { txt: "à générer", cls: "todo" };
+    if (v.exported) return { txt: "exportée ✓", cls: "ok" };
+    const masked = v.logos.filter(l => l.mask).length;
+    if (v.logos.length === 0) return { txt: "générée", cls: "gen" };
+    return { txt: `${masked}/${v.logos.length} logos`, cls: masked === v.logos.length ? "ok" : "gen" };
+  }
+
+  function renderViewSwitcher() {
+    const bar = el("view-switcher");
+    const views = App.state.views || [];
+    const show = views.length > 1 && curStep >= 2;
+    bar.classList.toggle("hidden", !show);
+    if (!show) return;
+    bar.innerHTML = "";
+    views.forEach((v, i) => {
+      const b = document.createElement("button");
+      b.className = "view-pill" + (i === App.state.cur ? " active" : "");
+      const st = viewStateLabel(v);
+      b.innerHTML = "";
+      const name = document.createElement("span");
+      name.textContent = v.name;
+      const badge = document.createElement("small");
+      badge.className = st.cls;
+      badge.textContent = st.txt;
+      b.append(name, badge);
+      b.addEventListener("click", () => {
+        selectView(i);
+        goStep(v.gen ? curStep : 1);
+      });
+      bar.appendChild(b);
+    });
+  }
+
+  // ══════════ Étape 1 : vues sources ══════════
+
+  function addViewFile(file) {
     if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
     const img = new Image();
     img.onload = () => {
@@ -106,31 +184,97 @@ const App = { state: {}, refreshLogoList: null };
       c.width = img.naturalWidth;
       c.height = img.naturalHeight;
       c.getContext("2d").drawImage(img, 0, 0);
-      App.state.sourceCanvas = c;
-      App.state.logos = [];
-      refreshLogoList();
-      const prev = el("canvas-source-preview");
-      const s = Math.min(1, 520 / c.width);
-      prev.width = c.width * s; prev.height = c.height * s;
-      prev.getContext("2d").drawImage(c, 0, 0, prev.width, prev.height);
-      prev.classList.remove("hidden");
-      el("source-info").textContent = `${c.width} × ${c.height} px — ${(file.size / 1024).toFixed(0)} Ko`;
-      el("btn-generate").disabled = false;
       URL.revokeObjectURL(img.src);
+      App.state.viewSeq++;
+      const defaults = ["face", "dos", "profil"];
+      const v = {
+        id: App.state.viewSeq,
+        name: defaults[App.state.views.length] || "vue-" + App.state.viewSeq,
+        source: c, gen: null, master: null,
+        logos: [], logoSeq: 0, exported: false,
+      };
+      App.state.views.push(v);
+      if (App.state.views.length === 1) selectView(0, { force: true });
+      renderViewsList();
+      renderViewSwitcher();
+      updateGenerateButton();
       Persist.saveSoon();
     };
     img.src = URL.createObjectURL(file);
   }
 
+  function thumbnail(canvas, h = 56) {
+    const t = document.createElement("canvas");
+    t.height = h;
+    t.width = Math.max(1, Math.round(canvas.width * h / canvas.height));
+    t.getContext("2d").drawImage(canvas, 0, 0, t.width, t.height);
+    return t.toDataURL("image/jpeg", 0.7);
+  }
+
+  function renderViewsList() {
+    const ul = el("views-list");
+    ul.innerHTML = "";
+    (App.state.views || []).forEach((v, i) => {
+      const li = document.createElement("li");
+      const img = document.createElement("img");
+      img.src = thumbnail(v.source);
+      const box = document.createElement("span");
+      box.className = "name";
+      const nameInput = document.createElement("input");
+      nameInput.value = v.name;
+      nameInput.title = "Nom de la vue (sert au nom du fichier exporté)";
+      nameInput.addEventListener("change", () => {
+        v.name = nameInput.value.trim() || v.name;
+        renderViewSwitcher();
+        Persist.saveSoon();
+      });
+      const dims = document.createElement("small");
+      dims.className = "muted";
+      dims.textContent = `${v.source.width} × ${v.source.height} px` +
+        (i === 0 ? " — référence identité" : "") + (v.gen ? " — générée" : "");
+      box.append(nameInput, dims);
+      const bDel = document.createElement("button");
+      bDel.className = "btn ghost";
+      bDel.textContent = "✕";
+      bDel.title = "Retirer cette vue";
+      bDel.addEventListener("click", () => {
+        App.state.views.splice(i, 1);
+        if (App.state.cur >= App.state.views.length) App.state.cur = App.state.views.length - 1;
+        if (App.state.views.length) selectView(Math.max(0, App.state.cur), { force: true });
+        else resetProject(true);
+        renderViewsList();
+        updateGenerateButton();
+        Persist.saveSoon();
+      });
+      li.append(img, box, bDel);
+      ul.appendChild(li);
+    });
+  }
+
+  function updateGenerateButton() {
+    const views = App.state.views || [];
+    const todo = views.filter(v => !v.gen).length;
+    const btn = el("btn-generate");
+    btn.disabled = todo === 0;
+    btn.textContent = views.length === 0
+      ? "Générer toutes les vues"
+      : todo === 0
+        ? "Toutes les vues sont générées"
+        : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.04).toFixed(2).replace(".", ",")} €)`;
+  }
+
   function wireSource() {
     const dz = el("drop-source");
     el("btn-browse").addEventListener("click", ev => { ev.preventDefault(); el("file-source").click(); });
-    el("file-source").addEventListener("change", ev => loadSourceFile(ev.target.files[0]));
+    el("file-source").addEventListener("change", ev => {
+      Array.from(ev.target.files).forEach(addViewFile);
+      ev.target.value = "";
+    });
     dz.addEventListener("dragover", ev => { ev.preventDefault(); dz.classList.add("over"); });
     dz.addEventListener("dragleave", () => dz.classList.remove("over"));
     dz.addEventListener("drop", ev => {
       ev.preventDefault(); dz.classList.remove("over");
-      loadSourceFile(ev.dataTransfer.files[0]);
+      Array.from(ev.dataTransfer.files).forEach(addViewFile);
     });
   }
 
@@ -149,18 +293,18 @@ const App = { state: {}, refreshLogoList: null };
     return m ? +m[1] < 18 : false;
   }
 
-  function buildPrompt(extraNote) {
+  function buildPrompt(withRef, extraNote) {
     const desc = modelDescription() || "mannequin adulte au look neutre";
     const pose = el("m-pose").value.trim() || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
     const notes = el("m-notes").value.trim();
 
     const lines = [
-      App.state.backMode
-        ? "Photo e-commerce studio, VUE DOS. La première image est la photo produit vue dos à modifier ; la seconde image est la vue face déjà validée du mannequin : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle)."
+      withRef
+        ? "Photo e-commerce studio. La première image est la photo produit à modifier (une autre vue du même produit : dos, profil ou autre angle). La seconde image est la vue de référence déjà générée du mannequin : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle). Le visage peut être peu visible selon l'angle, mais tout doit correspondre au même mannequin."
         : "Photo e-commerce studio. Modifie cette photo produit.",
       `Remplace le mannequin par : ${desc}.`,
-      `Nouvelle pose : ${pose}. La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.`,
+      `Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source. La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.`,
       "Retire tous les accessoires visibles : lunettes, bijoux, montre, casquette, sac, écouteurs, gants et objets tenus."
         + (acc ? ` Consigne spécifique : ${acc}.` : "")
         + " Chaque membre qui touchait un accessoire retiré doit reprendre une pose naturelle et équilibrée.",
@@ -193,50 +337,96 @@ const App = { state: {}, refreshLogoList: null };
     return { mimeType: "image/jpeg", data: url.split(",")[1] };
   }
 
-  async function generate(extraNote) {
-    const src = App.state.sourceCanvas;
-    if (!src) return;
-    showBusy("Génération du nouveau mannequin… (10 à 30 s)");
+  function identityRef(excludeView) {
+    for (const v of App.state.views) {
+      if (v !== excludeView && v.gen) return v.gen;
+    }
+    return null;
+  }
+
+  async function generateView(view, extraNote) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error("Session expirée, reconnecte-toi.");
+    const ref = identityRef(view);
+    const images = [canvasToB64(view.source, 1536)];
+    if (ref) images.push(canvasToB64(ref, 1024));
+    const resp = await fetch(GENERATE_FN_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + session.access_token,
+        "apikey": SUPABASE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt: buildPrompt(!!ref, extraNote), images }),
+    });
+    const out = await resp.json();
+    if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
+
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res; img.onerror = rej;
+      img.src = `data:${out.image.mimeType};base64,${out.image.data}`;
+    });
+    // Ramener la génération aux dimensions exactes de la source (règle du skill).
+    const gen = document.createElement("canvas");
+    gen.width = view.source.width;
+    gen.height = view.source.height;
+    const ctx = gen.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, gen.width, gen.height);
+    view.gen = gen;
+    view.exported = false;
+    if (view === currentView()) App.state.genCanvas = gen;
+  }
+
+  async function generateAll() {
+    const views = App.state.views || [];
+    if (!views.length) return;
+    const todo = views.filter(v => !v.gen);
     el("gen-msg").className = "msg";
     el("gen-msg").textContent = "";
+    let done = 0;
     try {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) throw new Error("Session expirée, reconnecte-toi.");
-      const images = [canvasToB64(src, 1536)];
-      if (App.state.backMode && App.state.faceRefCanvas) {
-        images.push(canvasToB64(App.state.faceRefCanvas, 1024));
+      for (const v of views) {
+        if (v.gen) continue;
+        done++;
+        showBusy(`Génération ${done}/${todo.length} — vue « ${v.name} »… (10 à 30 s)`);
+        await generateView(v);
+        await Persist.save(); // chaque image payée est sauvegardée immédiatement
+        renderViewsList();
+        updateGenerateButton();
       }
-      const resp = await fetch(GENERATE_FN_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + session.access_token,
-          "apikey": SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt: buildPrompt(extraNote), images }),
-      });
-      const out = await resp.json();
-      if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
-
-      const img = new Image();
-      await new Promise((res, rej) => {
-        img.onload = res; img.onerror = rej;
-        img.src = `data:${out.image.mimeType};base64,${out.image.data}`;
-      });
-      // Ramener la génération aux dimensions exactes de la source (règle du skill).
-      const gen = document.createElement("canvas");
-      gen.width = src.width; gen.height = src.height;
-      const ctx = gen.getContext("2d");
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, gen.width, gen.height);
-      App.state.genCanvas = gen;
-      Persist.save(); // sauvegarde immédiate : cette image a coûté de l'argent
+      selectView(0, { force: true });
       goStep(2);
-      renderCompare();
     } catch (e) {
       el("gen-msg").className = "msg error";
       el("gen-msg").textContent = "Échec de la génération : " + (e.message || e);
-      goStep(App.state.genCanvas ? 2 : 1);
+      goStep(currentView()?.gen ? 2 : 1);
+    } finally {
+      hideBusy();
+      updateGenerateButton();
+      renderViewsList();
+    }
+  }
+
+  async function regenerateCurrent() {
+    const v = currentView();
+    if (!v) return;
+    const note = el("regen-notes").value.trim();
+    showBusy(`Régénération de la vue « ${v.name} »… (10 à 30 s)`);
+    el("gen-msg").className = "msg";
+    el("gen-msg").textContent = "";
+    try {
+      await generateView(v, note);
+      await Persist.save();
+      renderCompare();
+      renderViewSwitcher();
+      if (App.state.cur === 0 && App.state.views.length > 1 && App.state.views.some((x, i) => i > 0 && x.gen)) {
+        el("gen-msg").textContent = "Vue de référence régénérée — les autres vues déjà générées gardent l'ancienne identité ; régénère-les si besoin.";
+      }
+    } catch (e) {
+      el("gen-msg").className = "msg error";
+      el("gen-msg").textContent = "Échec de la régénération : " + (e.message || e);
     } finally {
       hideBusy();
     }
@@ -278,7 +468,7 @@ const App = { state: {}, refreshLogoList: null };
     ctx.imageSmoothingEnabled = invZoom < 1;
     ctx.drawImage(src, 0, 0, c.width, c.height);
     for (const logo of App.state.logos) {
-      ctx.strokeStyle = logo.mask ? "#2ea25f" : "#d05050";
+      ctx.strokeStyle = logo.mask ? "#1a9a55" : "#d33d33";
       ctx.lineWidth = 2;
       ctx.strokeRect(logo.rect.x * invZoom, logo.rect.y * invZoom,
         logo.rect.w * invZoom, logo.rect.h * invZoom);
@@ -290,7 +480,7 @@ const App = { state: {}, refreshLogoList: null };
       ctx.fillText(logo.name, logo.rect.x * invZoom + 4, logo.rect.y * invZoom - 4);
     }
     if (invDrag && invDrag.cur) {
-      ctx.strokeStyle = "#3d82f6";
+      ctx.strokeStyle = "#ea580c";
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(invDrag.x0 * invZoom, invDrag.y0 * invZoom,
         (invDrag.cur.x - invDrag.x0) * invZoom, (invDrag.cur.y - invDrag.y0) * invZoom);
@@ -344,10 +534,12 @@ const App = { state: {}, refreshLogoList: null };
       placement: { x: rect.x, y: rect.y, scale: 100, contract: 0, feather: 0 },
     };
     App.state.logos.push(logo);
+    syncAliases();
     Masking.open(logo, imgData, l => {
       l.maskVersion++;
       refreshLogoList();
       renderInventory();
+      renderViewSwitcher();
       Persist.saveSoon();
     });
     refreshLogoList();
@@ -388,8 +580,9 @@ const App = { state: {}, refreshLogoList: null };
       bDel.className = "btn ghost";
       bDel.textContent = "✕";
       bDel.addEventListener("click", () => {
-        App.state.logos = App.state.logos.filter(l => l !== logo);
-        refreshLogoList(); renderInventory(); Persist.saveSoon();
+        const idx = App.state.logos.indexOf(logo);
+        if (idx >= 0) App.state.logos.splice(idx, 1);
+        refreshLogoList(); renderInventory(); renderViewSwitcher(); Persist.saveSoon();
       });
       li.append(img, span, state, bEdit, bDel);
       ul.appendChild(li);
@@ -400,18 +593,28 @@ const App = { state: {}, refreshLogoList: null };
 
   // ══════════ Étape 5 : export ══════════
 
+  function exportName(v) {
+    const s = slug(v.name);
+    return "photo-finale" + (s ? "-" + s : "") + ".webp";
+  }
+
   function renderFinal() {
+    if (!App.state.genCanvas) return;
     const comp = Placement.compositeFullRes();
     App.state.masterCanvas = comp;
+    syncAliases();
     const c = el("canvas-final");
     const s = Math.min(1, 760 / comp.width);
     c.width = comp.width * s; c.height = comp.height * s;
     c.getContext("2d").drawImage(comp, 0, 0, c.width, c.height);
+    const v = currentView();
     el("export-info").textContent =
-      `Master : ${comp.width} × ${comp.height} px — ${App.state.logos.length} logo(s) posé(s).`;
+      `Vue « ${v.name} » — master ${comp.width} × ${comp.height} px, ${App.state.logos.length} logo(s) posé(s).`;
   }
 
-  async function exportWebP() {
+  async function exportCurrent() {
+    const v = currentView();
+    if (!v) return;
     showBusy("Optimisation WebP…");
     try {
       const comp = App.state.masterCanvas || Placement.compositeFullRes();
@@ -419,14 +622,46 @@ const App = { state: {}, refreshLogoList: null };
       const url = URL.createObjectURL(blob);
       const link = el("link-download");
       link.href = url;
-      link.download = App.state.backMode ? "photo-finale-dos.webp" : "photo-finale.webp";
+      link.download = exportName(v);
       link.textContent = "Télécharger " + link.download;
       link.classList.remove("hidden");
+      v.exported = true;
+      renderViewSwitcher();
+      Persist.saveSoon();
       el("export-info").textContent =
         `${comp.width} × ${comp.height} px — ${(blob.size / 1024).toFixed(0)} Ko (qualité WebP ${Math.round(quality * 100)} %). ` +
         (overweight
           ? "⚠ Impossible de rester sous 200 Ko sans dégradation excessive : fichier livré au plus proche."
           : "Logos posés depuis les pixels de la photo source.");
+    } finally {
+      hideBusy();
+    }
+  }
+
+  async function exportAll() {
+    syncAliases();
+    const ready = App.state.views.filter(v => v.gen);
+    if (!ready.length) return;
+    showBusy("Export de toutes les vues…");
+    try {
+      for (const v of ready) {
+        selectView(App.state.views.indexOf(v), { force: true });
+        const comp = Placement.compositeFullRes();
+        App.state.masterCanvas = comp;
+        syncAliases();
+        const { blob } = await Placement.toWebPUnder(comp, 200);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = exportName(v);
+        a.click();
+        v.exported = true;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      renderViewSwitcher();
+      renderFinal();
+      Persist.saveSoon();
+      el("export-info").textContent =
+        `${ready.length} vue(s) exportée(s). Si le navigateur n'a téléchargé que la première, autorise les téléchargements multiples pour ce site.`;
     } finally {
       hideBusy();
     }
@@ -438,40 +673,32 @@ const App = { state: {}, refreshLogoList: null };
   function hideBusy() { el("busy").classList.add("hidden"); }
 
   function wireNav() {
-    el("btn-generate").addEventListener("click", () => generate());
-    el("btn-regenerate").addEventListener("click", () => generate(el("regen-notes").value.trim()));
+    el("btn-generate").addEventListener("click", generateAll);
+    el("btn-regenerate").addEventListener("click", regenerateCurrent);
     el("onion-opacity").addEventListener("input", renderCompare);
     el("btn-accept-gen").addEventListener("click", () => goStep(3));
     el("btn-goto-placement").addEventListener("click", () => goStep(4));
     el("btn-goto-export").addEventListener("click", () => goStep(5));
-    el("btn-export").addEventListener("click", exportWebP);
+    el("btn-export").addEventListener("click", exportCurrent);
     el("btn-export-png").addEventListener("click", () => {
+      const v = currentView();
       const comp = App.state.masterCanvas || Placement.compositeFullRes();
       comp.toBlob(b => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(b);
-        a.download = App.state.backMode ? "master-dos.png" : "master.png";
+        a.download = "master-" + (slug(v?.name) || "vue") + ".png";
         a.click();
       }, "image/png");
     });
-    el("btn-back-view").addEventListener("click", () => {
-      App.state.faceRefCanvas = App.state.masterCanvas || Placement.compositeFullRes();
-      resetPhotoState(true);
-      App.state.backMode = true;
-      el("backref-banner").classList.remove("hidden");
-      el("canvas-inventory").dataset.fitted = "";
-      goStep(1);
-    });
+    el("btn-export-all").addEventListener("click", exportAll);
     el("btn-new").addEventListener("click", () => {
-      resetPhotoState(false);
+      resetProject(false);
       Persist.clear();
-      el("canvas-inventory").dataset.fitted = "";
       goStep(1);
     });
     $$("#stepper .step").forEach(s => s.addEventListener("click", () => {
       const n = +s.dataset.step;
-      if (n === 1 || (n === 2 && App.state.genCanvas) ||
-          (n >= 3 && App.state.genCanvas) ) goStep(n);
+      if (n === 1 || App.state.genCanvas) goStep(n);
     }));
   }
 
@@ -480,33 +707,28 @@ const App = { state: {}, refreshLogoList: null };
   async function offerRestore() {
     let saved = null;
     try { saved = await Persist.getSaved(); } catch { return; }
-    if (!saved || (!saved.gen && !(saved.logos || []).length)) return;
+    if (!saved) return;
+    const views = saved.views || [];
+    const nGen = views.filter(v => v.gen).length;
+    if (!nGen && !views.some(v => (v.logos || []).length)) return;
     const age = Math.round((Date.now() - saved.savedAt) / 60000);
     el("restore-text").textContent =
-      `Session précédente retrouvée (il y a ${age < 60 ? age + " min" : Math.round(age / 60) + " h"})` +
-      (saved.gen ? " avec une image générée" : "") + ".";
+      `Projet précédent retrouvé (il y a ${age < 60 ? age + " min" : Math.round(age / 60) + " h"}) : ` +
+      `${views.length} vue(s), dont ${nGen} générée(s).`;
     el("restore-banner").classList.remove("hidden");
 
     el("btn-restore").onclick = async () => {
-      showBusy("Restauration de la session…");
+      showBusy("Restauration du projet…");
       try {
         await Persist.restore(saved);
         el("restore-banner").classList.add("hidden");
-        el("backref-banner").classList.toggle("hidden", !App.state.backMode);
-        const src = App.state.sourceCanvas;
-        const prev = el("canvas-source-preview");
-        const s = Math.min(1, 520 / src.width);
-        prev.width = src.width * s; prev.height = src.height * s;
-        prev.getContext("2d").drawImage(src, 0, 0, prev.width, prev.height);
-        prev.classList.remove("hidden");
-        el("source-info").textContent = `${src.width} × ${src.height} px (session restaurée)`;
-        el("btn-generate").disabled = false;
-        el("canvas-inventory").dataset.fitted = "";
-        refreshLogoList();
-        const logos = App.state.logos;
-        if (!App.state.genCanvas) goStep(1);
-        else if (!logos.length) { goStep(2); renderCompare(); }
-        else if (logos.every(l => l.mask)) goStep(4);
+        selectView(saved.cur >= 0 ? saved.cur : 0, { force: true });
+        renderViewsList();
+        updateGenerateButton();
+        const v = currentView();
+        if (!v || !v.gen) goStep(1);
+        else if (!v.logos.length) goStep(2);
+        else if (v.logos.every(l => l.mask)) goStep(4);
         else goStep(3);
       } finally {
         hideBusy();
@@ -516,14 +738,19 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    resetPhotoState(false);
+    resetProject(false);
     wireAuth();
     wireSource();
     wireInventory();
     wireNav();
     offerRestore();
     window.addEventListener("beforeunload", ev => {
-      if (App.state.genCanvas) { ev.preventDefault(); ev.returnValue = ""; }
+      if ((App.state.views || []).some(v => v.gen && !v.exported)) {
+        ev.preventDefault();
+        ev.returnValue = "";
+      }
     });
   });
+
+  App.syncAliases = syncAliases;
 })();

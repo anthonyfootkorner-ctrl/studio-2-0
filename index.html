@@ -49,6 +49,8 @@
     </div>
   </header>
 
+  <div id="view-switcher" class="view-switcher hidden"></div>
+
   <!-- Étape 1 : source + description -->
   <div id="step-1" class="panel">
     <div id="restore-banner" class="banner hidden">
@@ -58,16 +60,13 @@
     </div>
     <div class="cols">
       <div class="col">
-        <h2>Photo produit source</h2>
+        <h2>Photos produit (toutes les vues)</h2>
         <div id="drop-source" class="dropzone">
-          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp" hidden>
-          <p>Glisser la photo ici ou <button class="linklike" id="btn-browse">parcourir</button></p>
+          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp" multiple hidden>
+          <p>Glisser une ou plusieurs photos (face, dos, profil…) ou <button class="linklike" id="btn-browse">parcourir</button></p>
         </div>
-        <canvas id="canvas-source-preview" class="preview hidden"></canvas>
-        <p id="source-info" class="muted"></p>
-        <div id="backref-banner" class="banner hidden">
-          Vue dos : la vue face validée sera utilisée comme référence d'identité du mannequin.
-        </div>
+        <ul id="views-list" class="views-list"></ul>
+        <p class="hint">La première vue sert de référence d'identité : les autres vues sont générées avec le même mannequin. Renomme les vues (face, dos…) pour des fichiers d'export clairs.</p>
       </div>
       <div class="col">
         <h2>Nouveau mannequin</h2>
@@ -88,7 +87,7 @@
           <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel"></label>
           <p class="hint">Fond imposé : gris e-commerce uniforme <code>#F5F5F5</code>. Le vêtement est conservé à l'identique et généré <strong>sans aucun logo</strong> ; les logos originaux seront restaurés pixel pour pixel aux étapes 3-4.</p>
         </form>
-        <button id="btn-generate" class="btn primary big" disabled>Générer le nouveau mannequin</button>
+        <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
       </div>
     </div>
   </div>
@@ -225,8 +224,8 @@
         <a id="link-download" class="btn success big hidden" download="photo-finale.webp">Télécharger photo-finale.webp</a>
         <button id="btn-export-png" class="btn ghost">Télécharger aussi le master PNG</button>
         <hr>
-        <button id="btn-back-view" class="btn">Traiter la vue dos avec le même mannequin</button>
-        <button id="btn-new" class="btn ghost">Nouvelle photo (autre mannequin)</button>
+        <button id="btn-export-all" class="btn">Exporter toutes les vues prêtes</button>
+        <button id="btn-new" class="btn ghost">Nouveau projet</button>
       </div>
     </div>
   </div>
