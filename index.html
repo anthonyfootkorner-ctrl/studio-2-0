@@ -95,7 +95,7 @@
   <!-- Étape 2 : génération -->
   <div id="step-2" class="panel hidden">
     <h2>Contrôle de la génération</h2>
-    <p class="muted">Vérifier : identité et pose conformes, tête entière, aucun accessoire, aucun logo (même fantôme), buste avec la même inclinaison que la source, fond uniforme.</p>
+    <p class="muted">Vérifier : identité et pose conformes, tête entière, aucun accessoire, aucun logo (même fantôme), buste avec la même inclinaison que la source, fond uniforme. <strong>S'il reste une trace de logo : encadre-la directement sur l'image</strong> puis clique sur « Nettoyer la zone encadrée » (~4 centimes).</p>
     <div class="compare-wrap">
       <div class="compare-box">
         <canvas id="canvas-compare"></canvas>
@@ -107,6 +107,8 @@
     <div class="row">
       <input id="regen-notes" placeholder="Correction pour régénérer (ex. : le buste a pivoté, redresse-le)">
       <button id="btn-regenerate" class="btn">Régénérer</button>
+      <button id="btn-clean-zone" class="btn" disabled>Nettoyer la zone encadrée</button>
+      <button id="btn-generate-rest" class="btn primary hidden">Générer les vues restantes</button>
       <button id="btn-accept-gen" class="btn primary">Génération validée → Logos</button>
     </div>
     <p id="gen-msg" class="msg"></p>

@@ -58,6 +58,7 @@ const App = { state: {}, refreshLogoList: null };
     App.state.masterCanvas = v.master;
     App.state.logos = v.logos;
     App.state.logoSeq = v.logoSeq;
+    cleanRect = null;
     el("canvas-inventory").dataset.fitted = "";
     el("link-download").classList.add("hidden");
     renderViewSwitcher();
@@ -133,7 +134,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
-    if (n === 2) renderCompare();
+    if (n === 2) { renderCompare(); updateStep2Buttons(); }
     if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
     if (n === 5) renderFinal();
@@ -294,11 +295,14 @@ const App = { state: {}, refreshLogoList: null };
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
     btn.disabled = todo === 0;
+    const hasIdentity = vues.some(v => v.gen);
     btn.textContent = vues.length === 0
       ? "Générer toutes les vues"
       : todo === 0
         ? "Toutes les vues sont générées"
-        : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.04).toFixed(2).replace(".", ",")} €)`;
+        : !hasIdentity && todo > 1
+          ? `Générer la 1re vue — valider le mannequin, puis les ${todo - 1} autre(s)`
+          : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.04).toFixed(2).replace(".", ",")} €)`;
   }
 
   function wireSource() {
@@ -362,14 +366,19 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.");
       lines.push("Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.");
     }
-    if (extraPhotos > 0) {
-      lines.push(
-        `Les ${extraPhotos} dernière(s) image(s) fournie(s) montrent le MÊME produit sous d'autres faces ou angles (à plat ou porté). ` +
-        "Utilise-les uniquement comme références pour reproduire fidèlement le vêtement sous tous ses angles — notamment les parties non visibles sur la première image (dos, côtés, col, intérieur). Ne les recopie pas telles quelles."
-      );
+    // Rôles explicites et numérotés de chaque image fournie.
+    const roles = ["Image 1 : la photo produit source à transformer" + (view.flat ? " (produit à plat)" : "")];
+    if (withRef) {
+      roles.push("Image 2 : le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. Aucun changement de personne entre les vues.");
     }
+    if (extraPhotos > 0) {
+      const first = withRef ? 3 : 2;
+      const last = first + extraPhotos - 1;
+      roles.push(`Image${extraPhotos > 1 ? "s" : ""} ${first}${extraPhotos > 1 ? " à " + last : ""} : autres faces du MÊME produit (références vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas les recopier telles quelles.`);
+    }
+    lines.push("Rôles des images fournies :\n- " + roles.join("\n- "));
     lines.push(
-      "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement. Le textile doit être parfaitement vierge et continu, sans logo approximatif ni logo fantôme.",
+      "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement. Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
       "Conserve le cadrage et le format de la première image.",
     );
@@ -447,25 +456,37 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   async function generateAll() {
-    const views = (App.state.views || []).filter(v => v.role !== "ref");
-    if (!views.length) return;
-    const todo = views.filter(v => !v.gen);
+    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    if (!vues.length) return;
+    const hasIdentity = vues.some(v => v.gen);
+    // Sans mannequin validé : générer UNIQUEMENT la première vue, la faire valider,
+    // puis générer les autres avec cette référence — sinon chaque vue invente son mannequin.
+    const targets = hasIdentity
+      ? vues.filter(v => !v.gen)
+      : vues.filter(v => !v.gen).slice(0, 1);
+    if (!targets.length) return;
     el("gen-msg").className = "msg";
     el("gen-msg").textContent = "";
     let done = 0;
+    let generated = null;
     try {
-      for (const v of views) {
-        if (v.gen) continue;
+      for (const v of targets) {
         done++;
-        showBusy(`Génération ${done}/${todo.length} — vue « ${v.name} »… (10 à 30 s)`);
+        showBusy(`Génération ${done}/${targets.length} — vue « ${v.name} »… (10 à 30 s)`);
         await generateView(v);
+        generated = v;
         await Persist.save(); // chaque image payée est sauvegardée immédiatement
         renderViewsList();
         updateGenerateButton();
       }
-      const firstVue = App.state.views.findIndex(x => x.role !== "ref");
-      if (firstVue >= 0) selectView(firstVue, { force: true });
+      selectView(App.state.views.indexOf(generated ?? targets[0]), { force: true });
       goStep(2);
+      const remaining = vues.filter(v => !v.gen).length;
+      if (!hasIdentity && remaining > 0) {
+        el("gen-msg").className = "msg ok";
+        el("gen-msg").textContent =
+          `Mannequin créé. Valide cette vue (identité, pose, vêtement) puis clique sur « Générer les ${remaining} vue(s) restante(s) » : elles reprendront exactement ce mannequin.`;
+      }
     } catch (e) {
       el("gen-msg").className = "msg error";
       el("gen-msg").textContent = "Échec de la génération : " + (e.message || e);
@@ -474,7 +495,16 @@ const App = { state: {}, refreshLogoList: null };
       hideBusy();
       updateGenerateButton();
       renderViewsList();
+      updateStep2Buttons();
     }
+  }
+
+  function updateStep2Buttons() {
+    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    const remaining = vues.filter(v => !v.gen).length;
+    const btn = el("btn-generate-rest");
+    btn.classList.toggle("hidden", remaining === 0 || !vues.some(v => v.gen));
+    btn.textContent = `Générer les ${remaining} vue(s) restante(s) avec ce mannequin`;
   }
 
   async function regenerateCurrent() {
@@ -486,6 +516,7 @@ const App = { state: {}, refreshLogoList: null };
     el("gen-msg").textContent = "";
     try {
       await generateView(v, note);
+      cleanRect = null;
       await Persist.save();
       renderCompare();
       renderViewSwitcher();
@@ -501,6 +532,10 @@ const App = { state: {}, refreshLogoList: null };
     }
   }
 
+  // Zone de nettoyage (coordonnées pleine résolution de l'image générée)
+  let cleanRect = null;
+  let cleanDrag = null;
+
   function renderCompare() {
     const { sourceCanvas, genCanvas } = App.state;
     if (!genCanvas) return;
@@ -515,6 +550,115 @@ const App = { state: {}, refreshLogoList: null };
       ctx.globalAlpha = op;
       ctx.drawImage(sourceCanvas, 0, 0, c.width, c.height);
       ctx.globalAlpha = 1;
+    }
+    const r = cleanDrag && cleanDrag.cur ? cleanDrag.toRect() : cleanRect;
+    if (r) {
+      ctx.strokeStyle = "#d33d33";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(r.x * s, r.y * s, r.w * s, r.h * s);
+      ctx.setLineDash([]);
+    }
+    el("btn-clean-zone").disabled = !cleanRect;
+  }
+
+  function comparePos(ev) {
+    const c = el("canvas-compare");
+    const rect = c.getBoundingClientRect();
+    const scale = App.state.genCanvas.width / c.width;
+    const cssScale = c.width / rect.width;
+    return {
+      x: (ev.clientX - rect.left) * cssScale * scale,
+      y: (ev.clientY - rect.top) * cssScale * scale,
+    };
+  }
+
+  function wireCleanZone() {
+    const c = el("canvas-compare");
+    c.style.cursor = "crosshair";
+    c.addEventListener("pointerdown", ev => {
+      if (!App.state.genCanvas) return;
+      const p = comparePos(ev);
+      cleanDrag = {
+        x0: p.x, y0: p.y, cur: null,
+        toRect() {
+          return {
+            x: Math.min(this.x0, this.cur.x), y: Math.min(this.y0, this.cur.y),
+            w: Math.abs(this.cur.x - this.x0), h: Math.abs(this.cur.y - this.y0),
+          };
+        },
+      };
+      c.setPointerCapture(ev.pointerId);
+    });
+    c.addEventListener("pointermove", ev => {
+      if (!cleanDrag) return;
+      cleanDrag.cur = comparePos(ev);
+      renderCompare();
+    });
+    c.addEventListener("pointerup", () => {
+      if (!cleanDrag) return;
+      const r = cleanDrag.cur ? cleanDrag.toRect() : null;
+      cleanDrag = null;
+      cleanRect = r && r.w > 8 && r.h > 8 ? r : null; // mini-tracé = effacer la zone
+      renderCompare();
+    });
+  }
+
+  async function cleanZone() {
+    const v = currentView();
+    if (!v || !v.gen || !cleanRect) return;
+    showBusy("Nettoyage de la zone encadrée… (10 à 30 s)");
+    el("gen-msg").className = "msg";
+    el("gen-msg").textContent = "";
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error("Session expirée, reconnecte-toi.");
+      // Incruste un cadre rouge sur une copie : le marqueur visuel localise la retouche.
+      const marked = document.createElement("canvas");
+      marked.width = v.gen.width; marked.height = v.gen.height;
+      const ctx = marked.getContext("2d");
+      ctx.drawImage(v.gen, 0, 0);
+      ctx.strokeStyle = "#ff0000";
+      ctx.lineWidth = Math.max(4, Math.round(marked.width * 0.005));
+      ctx.strokeRect(cleanRect.x, cleanRect.y, cleanRect.w, cleanRect.h);
+      const prompt = [
+        "Cette photo e-commerce contient un cadre rouge tracé par-dessus l'image.",
+        "À L'INTÉRIEUR du cadre rouge, il reste un logo, un marquage ou une trace de logo sur le textile : efface-le COMPLÈTEMENT. Le tissu doit y être continu et uniforme, avec exactement la même texture, couleur et éclairage que le textile immédiatement autour du cadre.",
+        "Ne modifie RIEN d'autre : même mannequin, même visage, même pose, même vêtement, même fond. Supprime aussi le cadre rouge : il ne doit pas apparaître sur le résultat.",
+      ].join("\n");
+      const resp = await fetch(GENERATE_FN_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + session.access_token,
+          "apikey": SUPABASE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt, images: [canvasToB64(marked, 1536)] }),
+      });
+      const out = await resp.json();
+      if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
+      const img = new Image();
+      await new Promise((res, rej) => {
+        img.onload = res; img.onerror = rej;
+        img.src = `data:${out.image.mimeType};base64,${out.image.data}`;
+      });
+      const gen = document.createElement("canvas");
+      gen.width = v.gen.width; gen.height = v.gen.height;
+      const gctx = gen.getContext("2d");
+      gctx.imageSmoothingQuality = "high";
+      gctx.drawImage(img, 0, 0, gen.width, gen.height);
+      v.gen = gen;
+      if (v === currentView()) App.state.genCanvas = gen;
+      cleanRect = null;
+      await Persist.save();
+      renderCompare();
+      el("gen-msg").className = "msg ok";
+      el("gen-msg").textContent = "Zone nettoyée — contrôle le résultat, tu peux encadrer une autre zone si besoin.";
+    } catch (e) {
+      el("gen-msg").className = "msg error";
+      el("gen-msg").textContent = "Échec du nettoyage : " + (e.message || e);
+    } finally {
+      hideBusy();
     }
   }
 
@@ -865,6 +1009,8 @@ const App = { state: {}, refreshLogoList: null };
 
   function wireNav() {
     el("btn-generate").addEventListener("click", generateAll);
+    el("btn-generate-rest").addEventListener("click", generateAll);
+    el("btn-clean-zone").addEventListener("click", cleanZone);
     el("btn-regenerate").addEventListener("click", regenerateCurrent);
     el("onion-opacity").addEventListener("input", renderCompare);
     el("btn-accept-gen").addEventListener("click", () => goStep(3));
@@ -938,6 +1084,7 @@ const App = { state: {}, refreshLogoList: null };
     wireAuth();
     wireSource();
     wireInventory();
+    wireCleanZone();
     wireNav();
     offerRestore();
     window.addEventListener("beforeunload", ev => {
