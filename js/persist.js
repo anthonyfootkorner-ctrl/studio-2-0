@@ -74,9 +74,17 @@ const Persist = (() => {
         savedAt: Date.now(),
         cur: App.state.cur,
         viewSeq: App.state.viewSeq || views.length,
+        libSeq: App.state.libSeq || 0,
+        logoLibrary: (App.state.logoLibrary || []).map(it => ({
+          id: it.id, name: it.name, type: it.type,
+          imgData: it.imgData,
+          mask: it.mask ? new Uint8ClampedArray(it.mask) : null,
+          maskVersion: it.maskVersion || 0,
+        })),
         views: await Promise.all(views.map(async v => ({
           id: v.id,
           name: v.name,
+          role: v.role || "vue",
           flat: !!v.flat,
           exported: !!v.exported,
           source: await canvasToBlob(v.source),
@@ -122,6 +130,16 @@ const Persist = (() => {
     const s = App.state;
     s.views = [];
     s.viewSeq = data.viewSeq || data.views.length;
+    s.libSeq = data.libSeq || 0;
+    s.logoLibrary = (data.logoLibrary || []).map(it => {
+      const mask = it.mask ? new Uint8ClampedArray(it.mask) : null;
+      return {
+        id: it.id, name: it.name, type: it.type || "print",
+        imgData: it.imgData, mask,
+        maskVersion: it.maskVersion || 0,
+        cropCanvas: mask ? Masking.buildCropCanvas(it.imgData, mask) : null,
+      };
+    });
     for (const d of data.views) {
       const source = await blobToCanvas(d.source);
       if (!source) continue;
@@ -142,6 +160,7 @@ const Persist = (() => {
       s.views.push({
         id: d.id,
         name: d.name,
+        role: d.role || "vue",
         flat: !!d.flat,
         exported: !!d.exported,
         source,

@@ -132,8 +132,12 @@
       <div class="col narrow">
         <h3>Marquages inventoriés</h3>
         <ul id="logo-list" class="logo-list"></ul>
+        <div id="logo-library-box" class="hidden">
+          <h3>Logos importés (bibliothèque)</h3>
+          <ul id="logo-library" class="logo-list"></ul>
+        </div>
         <button id="btn-add-detail" class="btn big">＋ Logo depuis une photo détail</button>
-        <input type="file" id="file-detail" accept="image/png,image/jpeg,image/webp" hidden>
+        <input type="file" id="file-detail" accept="image/png,image/jpeg,image/webp" multiple hidden>
         <p class="hint">Tu peux aussi importer une photo rapprochée du logo (à plat, packshot…) : elle sera détourée avec les mêmes pinceaux puis posée sur le mannequin.</p>
         <button id="btn-goto-placement" class="btn primary big" disabled>Tous les logos détourés → Placement</button>
       </div>

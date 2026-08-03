@@ -19,6 +19,8 @@ const App = { state: {}, refreshLogoList: null };
     App.state.views = [];
     App.state.cur = -1;
     App.state.viewSeq = 0;
+    App.state.logoLibrary = [];
+    App.state.libSeq = 0;
     App.state.sourceCanvas = null;
     App.state.genCanvas = null;
     App.state.masterCanvas = null;
@@ -132,7 +134,7 @@ const App = { state: {}, refreshLogoList: null };
     });
     renderViewSwitcher();
     if (n === 2) renderCompare();
-    if (n === 3) renderInventory();
+    if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
     if (n === 5) renderFinal();
     Persist.saveSoon();
@@ -150,12 +152,14 @@ const App = { state: {}, refreshLogoList: null };
 
   function renderViewSwitcher() {
     const bar = el("view-switcher");
-    const views = App.state.views || [];
-    const show = views.length > 1 && curStep >= 2;
+    const entries = (App.state.views || [])
+      .map((v, i) => ({ v, i }))
+      .filter(e => e.v.role !== "ref");
+    const show = entries.length > 1 && curStep >= 2;
     bar.classList.toggle("hidden", !show);
     if (!show) return;
     bar.innerHTML = "";
-    views.forEach((v, i) => {
+    entries.forEach(({ v, i }) => {
       const b = document.createElement("button");
       b.className = "view-pill" + (i === App.state.cur ? " active" : "");
       const st = viewStateLabel(v);
@@ -178,6 +182,8 @@ const App = { state: {}, refreshLogoList: null };
 
   function addViewFile(file) {
     if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
+    // Un fichier nommé « logo… » est un logo à détourer, pas une vue à générer.
+    if (/logo/i.test(file.name)) { addLibraryFile(file, false); return; }
     const img = new Image();
     img.onload = () => {
       const c = document.createElement("canvas");
@@ -187,14 +193,19 @@ const App = { state: {}, refreshLogoList: null };
       URL.revokeObjectURL(img.src);
       App.state.viewSeq++;
       const defaults = ["face", "dos", "profil"];
+      const nVues = App.state.views.filter(x => x.role !== "ref").length;
+      const fromFile = file.name.replace(/\.[^.]+$/, "").trim();
       const v = {
         id: App.state.viewSeq,
-        name: defaults[App.state.views.length] || "vue-" + App.state.viewSeq,
+        name: fromFile || defaults[nVues] || "vue-" + App.state.viewSeq,
+        role: "vue",
         source: c, gen: null, master: null,
         logos: [], logoSeq: 0, exported: false,
       };
       App.state.views.push(v);
-      if (App.state.views.length === 1) selectView(0, { force: true });
+      if (App.state.views.filter(x => x.role !== "ref").length === 1) {
+        selectView(App.state.views.indexOf(v), { force: true });
+      }
       renderViewsList();
       renderViewSwitcher();
       updateGenerateButton();
@@ -228,10 +239,29 @@ const App = { state: {}, refreshLogoList: null };
         renderViewSwitcher();
         Persist.saveSoon();
       });
+      const isRef = v.role === "ref";
+      const firstVueIdx = App.state.views.findIndex(x => x.role !== "ref");
       const dims = document.createElement("small");
       dims.className = "muted";
       dims.textContent = `${v.source.width} × ${v.source.height} px` +
-        (i === 0 ? " — référence identité" : "") + (v.gen ? " — générée" : "");
+        (!isRef && i === firstVueIdx ? " — référence identité" : "") +
+        (v.gen ? " — générée" : "");
+      const roleSel = document.createElement("select");
+      roleSel.innerHTML =
+        '<option value="vue">Vue à générer</option>' +
+        '<option value="ref">Photo produit (référence seule)</option>';
+      roleSel.value = v.role || "vue";
+      roleSel.addEventListener("change", () => {
+        v.role = roleSel.value;
+        if (v.role === "ref" && currentView() === v) {
+          const j = App.state.views.findIndex(x => x.role !== "ref");
+          if (j >= 0) selectView(j, { force: true });
+        }
+        renderViewsList();
+        renderViewSwitcher();
+        updateGenerateButton();
+        Persist.saveSoon();
+      });
       const flatLabel = document.createElement("label");
       flatLabel.className = "inline flat";
       const cb = document.createElement("input");
@@ -239,7 +269,8 @@ const App = { state: {}, refreshLogoList: null };
       cb.checked = !!v.flat;
       cb.addEventListener("change", () => { v.flat = cb.checked; Persist.saveSoon(); });
       flatLabel.append(cb, document.createTextNode(" produit à plat (non porté)"));
-      box.append(nameInput, dims, flatLabel);
+      box.append(nameInput, dims, roleSel);
+      if (!isRef) box.append(flatLabel);
       const bDel = document.createElement("button");
       bDel.className = "btn ghost";
       bDel.textContent = "✕";
@@ -259,11 +290,11 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function updateGenerateButton() {
-    const views = App.state.views || [];
-    const todo = views.filter(v => !v.gen).length;
+    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
     btn.disabled = todo === 0;
-    btn.textContent = views.length === 0
+    btn.textContent = vues.length === 0
       ? "Générer toutes les vues"
       : todo === 0
         ? "Toutes les vues sont générées"
@@ -315,6 +346,7 @@ const App = { state: {}, refreshLogoList: null };
         : "Photo e-commerce studio. Cette photo montre le produit à plat, non porté.");
       lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.name} ». Génère le mannequin sous cet angle (face = de face, dos = de dos, profil = de profil), en te basant sur la face correspondante du produit.`);
+      lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}. Tête entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus. Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
       lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
       lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
@@ -415,7 +447,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   async function generateAll() {
-    const views = App.state.views || [];
+    const views = (App.state.views || []).filter(v => v.role !== "ref");
     if (!views.length) return;
     const todo = views.filter(v => !v.gen);
     el("gen-msg").className = "msg";
@@ -431,7 +463,8 @@ const App = { state: {}, refreshLogoList: null };
         renderViewsList();
         updateGenerateButton();
       }
-      selectView(0, { force: true });
+      const firstVue = App.state.views.findIndex(x => x.role !== "ref");
+      if (firstVue >= 0) selectView(firstVue, { force: true });
       goStep(2);
     } catch (e) {
       el("gen-msg").className = "msg error";
@@ -456,7 +489,8 @@ const App = { state: {}, refreshLogoList: null };
       await Persist.save();
       renderCompare();
       renderViewSwitcher();
-      if (App.state.cur === 0 && App.state.views.length > 1 && App.state.views.some((x, i) => i > 0 && x.gen)) {
+      const firstVue = App.state.views.findIndex(x => x.role !== "ref");
+      if (App.state.cur === firstVue && App.state.views.some((x, i) => i !== firstVue && x.role !== "ref" && x.gen)) {
         el("gen-msg").textContent = "Vue de référence régénérée — les autres vues déjà générées gardent l'ancienne identité ; régénère-les si besoin.";
       }
     } catch (e) {
@@ -558,7 +592,8 @@ const App = { state: {}, refreshLogoList: null };
     el("btn-zoom-out").addEventListener("click", () => { invZoom = Math.max(0.1, invZoom / 1.25); renderInventory(); });
     el("btn-add-detail").addEventListener("click", () => el("file-detail").click());
     el("file-detail").addEventListener("change", ev => {
-      Array.from(ev.target.files).forEach(addExternalLogoFile);
+      const files = Array.from(ev.target.files);
+      files.forEach((f, i) => addLibraryFile(f, i === 0 && files.length === 1));
       ev.target.value = "";
     });
   }
@@ -587,12 +622,12 @@ const App = { state: {}, refreshLogoList: null };
     renderInventory();
   }
 
-  // Logo importé depuis une photo détail (packshot, gros plan) : détouré avec les
-  // mêmes pinceaux, posé sur le mannequin avec une taille initiale raisonnable.
-  function addExternalLogoFile(file) {
+  // ══════════ Bibliothèque de logos ══════════
+  // Une photo détail (packshot, gros plan, fichier « logo… ») est détourée UNE fois
+  // dans la bibliothèque, puis peut être posée sur n'importe quelle vue générée.
+
+  function addLibraryFile(file, autoOpen) {
     if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
-    const base = App.state.sourceCanvas;
-    if (!base) return;
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(img.src);
@@ -604,34 +639,101 @@ const App = { state: {}, refreshLogoList: null };
       const ctx = c.getContext("2d");
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, c.width, c.height);
-      const imgData = ctx.getImageData(0, 0, c.width, c.height);
-      App.state.logoSeq++;
-      const initScale = Math.max(5, Math.min(300, Math.round((base.width * 0.22 / c.width) * 100)));
-      const logo = {
-        id: App.state.logoSeq,
-        name: "logo-détail-" + App.state.logoSeq,
-        external: true,
-        rect: { x: 0, y: 0, w: c.width, h: c.height },
-        imgData,
+      App.state.libSeq = (App.state.libSeq || 0) + 1;
+      const item = {
+        id: App.state.libSeq,
+        name: file.name.replace(/\.[^.]+$/, "").trim() || "logo-" + App.state.libSeq,
+        imgData: ctx.getImageData(0, 0, c.width, c.height),
         type: "print",
         mask: null, cropCanvas: null, maskVersion: 0,
-        placement: {
-          x: Math.round(base.width * 0.39),
-          y: Math.round(base.height * 0.3),
-          scale: initScale, contract: 0, feather: 0,
-        },
       };
-      App.state.logos.push(logo);
-      syncAliases();
-      Masking.open(logo, imgData, l => {
-        l.maskVersion++;
-        refreshLogoList();
-        renderViewSwitcher();
-        Persist.saveSoon();
-      });
-      refreshLogoList();
+      App.state.logoLibrary.push(item);
+      renderLogoLibrary();
+      Persist.saveSoon();
+      if (autoOpen !== false) openLibraryEditor(item);
     };
     img.src = URL.createObjectURL(file);
+  }
+
+  function openLibraryEditor(item) {
+    Masking.open(item, item.imgData, () => {
+      item.maskVersion++;
+      renderLogoLibrary();
+      Persist.saveSoon();
+    });
+  }
+
+  function placeLibraryLogo(item) {
+    const base = App.state.sourceCanvas;
+    if (!base || !item.mask) return;
+    App.state.logoSeq++;
+    const w = item.imgData.width;
+    const initScale = Math.max(5, Math.min(300, Math.round((base.width * 0.22 / w) * 100)));
+    App.state.logos.push({
+      id: App.state.logoSeq,
+      name: item.name,
+      external: true,
+      rect: { x: 0, y: 0, w, h: item.imgData.height },
+      imgData: item.imgData,
+      type: item.type,
+      mask: new Uint8ClampedArray(item.mask), // copie : réparable par vue sans toucher la bibliothèque
+      cropCanvas: item.cropCanvas,
+      maskVersion: 1,
+      placement: {
+        x: Math.round(base.width * 0.39),
+        y: Math.round(base.height * 0.3),
+        scale: initScale, contract: 0, feather: 0,
+      },
+    });
+    syncAliases();
+    refreshLogoList();
+    renderViewSwitcher();
+    Persist.saveSoon();
+  }
+
+  function renderLogoLibrary() {
+    const box = el("logo-library-box");
+    const ul = el("logo-library");
+    const lib = App.state.logoLibrary || [];
+    box.classList.toggle("hidden", lib.length === 0);
+    ul.innerHTML = "";
+    for (const item of lib) {
+      const li = document.createElement("li");
+      const img = document.createElement("img");
+      if (item.cropCanvas) img.src = item.cropCanvas.toDataURL();
+      const span = document.createElement("span");
+      span.className = "name";
+      const nameInput = document.createElement("input");
+      nameInput.value = item.name;
+      nameInput.addEventListener("change", () => {
+        item.name = nameInput.value.trim() || item.name;
+        Persist.saveSoon();
+      });
+      const state = document.createElement("span");
+      state.className = "state " + (item.mask ? "ok" : "todo");
+      state.textContent = item.mask ? "Détouré" : "À détourer";
+      span.append(nameInput);
+      const bEdit = document.createElement("button");
+      bEdit.className = "btn ghost";
+      bEdit.textContent = item.mask ? "Réparer" : "Détourer";
+      bEdit.addEventListener("click", () => openLibraryEditor(item));
+      const bPlace = document.createElement("button");
+      bPlace.className = "btn";
+      bPlace.textContent = "Poser";
+      bPlace.disabled = !item.mask;
+      bPlace.title = "Poser ce logo sur la vue courante";
+      bPlace.addEventListener("click", () => placeLibraryLogo(item));
+      const bDel = document.createElement("button");
+      bDel.className = "btn ghost";
+      bDel.textContent = "✕";
+      bDel.addEventListener("click", () => {
+        App.state.logoLibrary = App.state.logoLibrary.filter(x => x !== item);
+        renderLogoLibrary();
+        Persist.saveSoon();
+      });
+      li.append(img, span, state, bEdit, bPlace, bDel);
+      ul.appendChild(li);
+    }
   }
 
   function refreshLogoList() {
@@ -729,7 +831,7 @@ const App = { state: {}, refreshLogoList: null };
 
   async function exportAll() {
     syncAliases();
-    const ready = App.state.views.filter(v => v.gen);
+    const ready = App.state.views.filter(v => v.role !== "ref" && v.gen);
     if (!ready.length) return;
     showBusy("Export de toutes les vues…");
     try {
@@ -811,7 +913,12 @@ const App = { state: {}, refreshLogoList: null };
       try {
         await Persist.restore(saved);
         el("restore-banner").classList.add("hidden");
-        selectView(saved.cur >= 0 ? saved.cur : 0, { force: true });
+        let idx = saved.cur >= 0 ? saved.cur : 0;
+        if (!App.state.views[idx] || App.state.views[idx].role === "ref") {
+          idx = Math.max(0, App.state.views.findIndex(x => x.role !== "ref"));
+        }
+        selectView(idx, { force: true });
+        renderLogoLibrary();
         renderViewsList();
         updateGenerateButton();
         const v = currentView();
