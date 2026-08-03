@@ -300,7 +300,7 @@ const App = { state: {}, refreshLogoList: null };
     return m ? +m[1] < 18 : false;
   }
 
-  function buildPrompt(view, withRef, extraNote) {
+  function buildPrompt(view, withRef, extraPhotos, extraNote) {
     const desc = modelDescription() || "mannequin adulte au look neutre";
     const pose = el("m-pose").value.trim() || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
@@ -314,8 +314,9 @@ const App = { state: {}, refreshLogoList: null };
         ? "Photo e-commerce studio. La première image montre le produit à plat, non porté. " + refPhrase
         : "Photo e-commerce studio. Cette photo montre le produit à plat, non porté.");
       lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
-      lines.push(`Pose : ${pose}. Tête entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus. Le panneau poitrine doit être bien face caméra, plat et sans distorsion.`);
-      lines.push("Reproduis EXACTEMENT le vêtement de la photo : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent de la photo.");
+      lines.push(`VUE À PRODUIRE : « ${view.name} ». Génère le mannequin sous cet angle (face = de face, dos = de dos, profil = de profil), en te basant sur la face correspondante du produit.`);
+      lines.push(`Pose : ${pose}. Tête entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus. Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
+      lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
       lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
     } else {
       lines.push(withRef
@@ -329,10 +330,16 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.");
       lines.push("Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.");
     }
+    if (extraPhotos > 0) {
+      lines.push(
+        `Les ${extraPhotos} dernière(s) image(s) fournie(s) montrent le MÊME produit sous d'autres faces ou angles (à plat ou porté). ` +
+        "Utilise-les uniquement comme références pour reproduire fidèlement le vêtement sous tous ses angles — notamment les parties non visibles sur la première image (dos, côtés, col, intérieur). Ne les recopie pas telles quelles."
+      );
+    }
     lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement. Le textile doit être parfaitement vierge et continu, sans logo approximatif ni logo fantôme.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
-      "Conserve le cadrage et le format de la photo source.",
+      "Conserve le cadrage et le format de la première image.",
     );
     if (isMinor()) {
       lines.push("Contexte : photo catalogue e-commerce de textile enfant/adolescent. Le mannequin mineur est entièrement habillé, dans une pose catalogue naturelle et sportive, avec une expression neutre adaptée à son âge. Aucune sexualisation, aucune pose suggestive, aucune mise en scène adulte. Cadrage commercial centré sur le produit.");
@@ -370,6 +377,14 @@ const App = { state: {}, refreshLogoList: null };
     const ref = identityRef(view);
     const images = [canvasToB64(view.source, 1536)];
     if (ref) images.push(canvasToB64(ref, 1024));
+    // Toutes les autres photos du produit servent de référence vêtement :
+    // le devant à plat renseigne la vue face, le dos à plat renseigne la vue dos, etc.
+    let extraPhotos = 0;
+    for (const v of App.state.views) {
+      if (v === view || images.length >= 5) continue;
+      images.push(canvasToB64(v.source, 1024));
+      extraPhotos++;
+    }
     const resp = await fetch(GENERATE_FN_URL, {
       method: "POST",
       headers: {
@@ -377,7 +392,7 @@ const App = { state: {}, refreshLogoList: null };
         "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt: buildPrompt(view, !!ref, extraNote), images }),
+      body: JSON.stringify({ prompt: buildPrompt(view, !!ref, extraPhotos, extraNote), images }),
     });
     const out = await resp.json();
     if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
