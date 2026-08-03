@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Studio 2.0 — Footkorner</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══════════ Connexion ═══════════ -->
+<section id="screen-login" class="screen">
+  <div class="login-card">
+    <h1>Studio 2.0</h1>
+    <p class="muted">Remplacer le mannequin d'une photo produit en conservant exactement les logos originaux.</p>
+    <div class="tabs">
+      <button class="tab active" data-tab="password">Mot de passe</button>
+      <button class="tab" data-tab="magic">Magic link</button>
+    </div>
+    <form id="form-login">
+      <label>E-mail
+        <input type="email" id="login-email" required autocomplete="email">
+      </label>
+      <label id="row-password">Mot de passe
+        <input type="password" id="login-password" autocomplete="current-password">
+      </label>
+      <button type="submit" class="btn primary" id="btn-login">Se connecter</button>
+    </form>
+    <p id="login-msg" class="msg"></p>
+  </div>
+</section>
+
+<!-- ═══════════ Application ═══════════ -->
+<section id="screen-app" class="screen hidden">
+  <header class="topbar">
+    <strong>Studio 2.0</strong>
+    <nav id="stepper">
+      <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
+      <span class="step" data-step="2">2 · Génération</span>
+      <span class="step" data-step="3">3 · Logos</span>
+      <span class="step" data-step="4">4 · Placement</span>
+      <span class="step" data-step="5">5 · Export</span>
+    </nav>
+    <div>
+      <span id="user-email" class="muted"></span>
+      <button id="btn-admin" class="btn ghost">Utilisateurs</button>
+      <button id="btn-logout" class="btn ghost">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- Étape 1 : source + description -->
+  <div id="step-1" class="panel">
+    <div id="restore-banner" class="banner hidden">
+      <span id="restore-text">Une session précédente a été retrouvée.</span>
+      <button id="btn-restore" class="btn primary">Reprendre</button>
+      <button id="btn-restore-dismiss" class="btn ghost">Ignorer</button>
+    </div>
+    <div class="cols">
+      <div class="col">
+        <h2>Photo produit source</h2>
+        <div id="drop-source" class="dropzone">
+          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp" hidden>
+          <p>Glisser la photo ici ou <button class="linklike" id="btn-browse">parcourir</button></p>
+        </div>
+        <canvas id="canvas-source-preview" class="preview hidden"></canvas>
+        <p id="source-info" class="muted"></p>
+        <div id="backref-banner" class="banner hidden">
+          Vue dos : la vue face validée sera utilisée comme référence d'identité du mannequin.
+        </div>
+      </div>
+      <div class="col">
+        <h2>Nouveau mannequin</h2>
+        <form id="form-model">
+          <div class="grid2">
+            <label>Genre / présentation <input id="m-genre" placeholder="Homme"></label>
+            <label>Origine / apparence <input id="m-origine" placeholder="Espagnol"></label>
+            <label>Âge approximatif <input id="m-age" placeholder="Environ 20 ans"></label>
+            <label>Morphologie <input id="m-morpho" placeholder="Sportif"></label>
+            <label>Cheveux <input id="m-cheveux" placeholder="Bruns courts et texturés"></label>
+            <label>Barbe <input id="m-barbe" placeholder="Sans barbe"></label>
+          </div>
+          <label>Expression / attitude <input id="m-expression" placeholder="Expression calme"></label>
+          <label>Pose souhaitée <input id="m-pose" placeholder="Pose e-commerce naturelle, différente de la source"></label>
+          <label>Accessoires à retirer (et nouvelle pose des membres)
+            <input id="m-accessoires" placeholder="Retirer le ballon ; bras relâchés le long du corps">
+          </label>
+          <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel"></label>
+          <p class="hint">Fond imposé : gris e-commerce uniforme <code>#F5F5F5</code>. Le vêtement est conservé à l'identique et généré <strong>sans aucun logo</strong> ; les logos originaux seront restaurés pixel pour pixel aux étapes 3-4.</p>
+        </form>
+        <button id="btn-generate" class="btn primary big" disabled>Générer le nouveau mannequin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Étape 2 : génération -->
+  <div id="step-2" class="panel hidden">
+    <h2>Contrôle de la génération</h2>
+    <p class="muted">Vérifier : identité et pose conformes, tête entière, aucun accessoire, aucun logo (même fantôme), buste avec la même inclinaison que la source, fond uniforme.</p>
+    <div class="compare-wrap">
+      <div class="compare-box">
+        <canvas id="canvas-compare"></canvas>
+        <label class="onion">Superposition source
+          <input type="range" id="onion-opacity" min="0" max="100" value="0">
+        </label>
+      </div>
+    </div>
+    <div class="row">
+      <input id="regen-notes" placeholder="Correction pour régénérer (ex. : le buste a pivoté, redresse-le)">
+      <button id="btn-regenerate" class="btn">Régénérer</button>
+      <button id="btn-accept-gen" class="btn primary">Génération validée → Logos</button>
+    </div>
+    <p id="gen-msg" class="msg"></p>
+  </div>
+
+  <!-- Étape 3 : inventaire + détourage -->
+  <div id="step-3" class="panel hidden">
+    <h2>Inventaire et détourage des logos</h2>
+    <p class="muted">Tracer un cadre sur <strong>chaque</strong> marquage de la source : poitrine, manches, col, côtés, bas du haut, ceinture, jambes du short, inscriptions techniques ton sur ton. Zoomer pour ne rien manquer.</p>
+    <div class="cols">
+      <div class="col grow">
+        <div class="toolrow">
+          <button id="btn-zoom-out" class="btn ghost">−</button>
+          <span id="zoom-label">100 %</span>
+          <button id="btn-zoom-in" class="btn ghost">+</button>
+          <span class="spacer"></span>
+          <span class="hint">Cliquer-glisser pour tracer un cadre autour d'un logo</span>
+        </div>
+        <div id="inventory-viewport" class="viewport">
+          <canvas id="canvas-inventory"></canvas>
+        </div>
+      </div>
+      <div class="col narrow">
+        <h3>Marquages inventoriés</h3>
+        <ul id="logo-list" class="logo-list"></ul>
+        <button id="btn-goto-placement" class="btn primary big" disabled>Tous les logos détourés → Placement</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Éditeur de masque (superposé) -->
+  <div id="mask-editor" class="modal hidden">
+    <div class="modal-box">
+      <h3 id="mask-title">Détourage</h3>
+      <div class="toolrow">
+        <label>Type
+          <select id="mask-type">
+            <option value="print">Impression / broderie (textile transparent)</option>
+            <option value="patch">Écusson / patch (support conservé)</option>
+          </select>
+        </label>
+        <label id="row-threshold">Seuil
+          <input type="range" id="mask-threshold" min="4" max="120" value="34">
+        </label>
+        <button id="btn-mask-auto" class="btn ghost">Recalculer le masque</button>
+      </div>
+      <div class="toolrow">
+        <button class="btn tool active" id="tool-keep">Pinceau Garder</button>
+        <button class="btn tool" id="tool-erase">Pinceau Effacer</button>
+        <label>Taille <input type="range" id="brush-size" min="2" max="80" value="16"></label>
+        <label>Zoom <input type="range" id="mask-zoom" min="100" max="800" value="300" step="50"></label>
+        <button id="btn-mask-undo" class="btn ghost">Annuler le trait</button>
+      </div>
+      <div class="mask-cols">
+        <div><p class="hint">Pixels originaux (rouge = supprimés)</p><div class="mask-viewport"><canvas id="canvas-mask-src"></canvas></div></div>
+        <div><p class="hint">Résultat sur damier</p><div class="mask-viewport"><canvas id="canvas-mask-out"></canvas></div></div>
+      </div>
+      <div class="row right">
+        <button id="btn-mask-cancel" class="btn ghost">Fermer sans modifier</button>
+        <button id="btn-mask-save" class="btn primary">Valider ce détourage</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Étape 4 : placement -->
+  <div id="step-4" class="panel hidden">
+    <h2>Placement des logos sur le nouveau mannequin</h2>
+    <p class="muted">Chaque logo est proposé à sa position d'origine. Cliquer pour sélectionner, glisser pour déplacer, molette ou curseur pour la taille. Comparer avec la source à gauche.</p>
+    <div class="cols">
+      <div class="col grow">
+        <div class="place-wrap">
+          <div><p class="hint">Source</p><canvas id="canvas-place-src"></canvas></div>
+          <div><p class="hint">Nouveau mannequin</p><canvas id="canvas-place-dst"></canvas></div>
+        </div>
+      </div>
+      <div class="col narrow">
+        <h3 id="sel-title">Aucun logo sélectionné</h3>
+        <div id="sel-controls" class="hidden">
+          <label>Taille : <span id="sel-scale-label">100 %</span>
+            <input type="range" id="sel-scale" min="25" max="300" value="100">
+          </label>
+          <label>Fusion du bord (halo)
+            <select id="sel-edge">
+              <option value="0,0">Aucune</option>
+              <option value="1,0.8">Légère (contract 1 / feather 0.8)</option>
+              <option value="2,1.2">Moyenne (contract 2 / feather 1.2)</option>
+              <option value="3,1.5">Forte (contract 3 / feather 1.5)</option>
+            </select>
+          </label>
+          <button id="btn-sel-repair" class="btn ghost">Réparer ce logo (détourage)</button>
+        </div>
+        <h3>Contrôle à 400 %</h3>
+        <canvas id="canvas-loupe" width="260" height="200"></canvas>
+        <button id="btn-goto-export" class="btn primary big">Valider tous les logos → Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Étape 5 : export -->
+  <div id="step-5" class="panel hidden">
+    <h2>Contrôle final et export</h2>
+    <div class="cols">
+      <div class="col grow">
+        <canvas id="canvas-final" class="preview"></canvas>
+      </div>
+      <div class="col narrow">
+        <ul class="checklist">
+          <li>Tous les logos inventoriés sont posés</li>
+          <li>Aucun bord de logo coupé, aucun halo à 400 %</li>
+          <li>Pose nouvelle, aucun accessoire, tête entière</li>
+          <li>Fond uniforme #F5F5F5 aux quatre coins</li>
+        </ul>
+        <p id="export-info" class="muted"></p>
+        <button id="btn-export" class="btn primary big">Exporter WebP (≤ 200 Ko)</button>
+        <a id="link-download" class="btn success big hidden" download="photo-finale.webp">Télécharger photo-finale.webp</a>
+        <button id="btn-export-png" class="btn ghost">Télécharger aussi le master PNG</button>
+        <hr>
+        <button id="btn-back-view" class="btn">Traiter la vue dos avec le même mannequin</button>
+        <button id="btn-new" class="btn ghost">Nouvelle photo (autre mannequin)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panneau admin : utilisateurs et coûts -->
+  <div id="admin-panel" class="modal hidden">
+    <div class="modal-box">
+      <h3>Utilisateurs et suivi des coûts</h3>
+      <p class="hint">Coût estimé sur une base large de <strong>0,06 € par image générée</strong> (tarif réel : ~0,034 €). Seules les générations comptent — détourage, placement et export sont gratuits.</p>
+      <p id="admin-msg" class="msg"></p>
+      <div class="table-wrap">
+        <table id="admin-table" class="admin-table">
+          <thead>
+            <tr>
+              <th>E-mail</th>
+              <th>Photos ce mois-ci</th>
+              <th>Coût du mois</th>
+              <th>Total</th>
+              <th>Coût total</th>
+              <th>Dernière génération</th>
+              <th>Dernière connexion</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+      <h4>Ajouter un utilisateur</h4>
+      <form id="form-add-user" class="row">
+        <input type="email" id="new-user-email" placeholder="E-mail" required>
+        <input type="password" id="new-user-password" placeholder="Mot de passe (6 car. min)" required minlength="6">
+        <label class="inline"><input type="checkbox" id="new-user-admin"> Admin</label>
+        <button type="submit" class="btn primary">Créer le compte</button>
+      </form>
+      <div class="row right">
+        <button id="btn-admin-refresh" class="btn ghost">Actualiser</button>
+        <button id="btn-admin-close" class="btn">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
+</section>
+
+<script src="vendor/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/masking.js"></script>
+<script src="js/persist.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/placement.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
