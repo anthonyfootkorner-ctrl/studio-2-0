@@ -501,6 +501,7 @@ const App = { state: {}, refreshLogoList: null };
     lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.",
+      "BORDS ET BAS DE L'IMAGE impeccables : le fond reste uniforme jusqu'aux quatre bords et dans les coins (aucun sol, parquet, mur ou objet). Si un short ou un bas neutre est visible en bas de l'image, il est NET, uni et sans tache, flou ni artefact — comme le reste de la photo.",
     );
     const creation = type === "flat" || type === "ghost";
     const formatPhrase = creation
