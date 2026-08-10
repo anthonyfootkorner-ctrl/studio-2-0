@@ -323,11 +323,40 @@ const App = { state: {}, refreshLogoList: null };
 
   const isHeic = f => /image\/hei[cf]/.test(f.type) || /\.hei[cf]$/i.test(f.name);
 
+  async function canvasToJpegFile(c, name) {
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.95));
+    return new File([blob], name.replace(/\.hei[cf]$/i, "") + ".jpg", { type: "image/jpeg" });
+  }
+
   async function toCompatible(file) {
     if (!isHeic(file)) return file;
-    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.95 });
-    const blob = Array.isArray(out) ? out[0] : out;
-    return new File([blob], file.name.replace(/\.hei[cf]$/i, ".jpg"), { type: "image/jpeg" });
+    // 1) Décodage natif du navigateur (Safari lit le HEIC directement ;
+    //    couvre aussi les fichiers JPEG mal renommés en .heic).
+    try {
+      const bmp = await createImageBitmap(file);
+      const c = document.createElement("canvas");
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext("2d").drawImage(bmp, 0, 0);
+      return await canvasToJpegFile(c, file.name);
+    } catch { /* le navigateur ne sait pas décoder ce HEIC : on passe à libheif */ }
+    // 2) Décodeur libheif à jour (local, vendorisé). La bibliothèque expose une
+    //    fabrique : on instancie le module une seule fois.
+    App._libheif = App._libheif || window.libheif();
+    const buf = await file.arrayBuffer();
+    const decoder = new App._libheif.HeifDecoder();
+    const imgs = decoder.decode(buf);
+    if (!imgs || !imgs.length) throw new Error("aucune image décodable dans ce fichier");
+    const img = imgs[0];
+    const w = img.get_width(), h = img.get_height();
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    const id = ctx.createImageData(w, h);
+    await new Promise((res, rej) =>
+      img.display(id, ok => ok ? res() : rej(new Error("décodage HEIC échoué"))));
+    imgs.forEach(i => { try { i.free && i.free(); } catch {} });
+    ctx.putImageData(id, 0, 0);
+    return await canvasToJpegFile(c, file.name);
   }
 
   async function intake(fileList, handler) {
@@ -338,7 +367,8 @@ const App = { state: {}, refreshLogoList: null };
       for (const f of files) handler(await toCompatible(f), files.length === 1);
     } catch (e) {
       console.error("Conversion HEIC impossible :", e);
-      alert("Conversion HEIC impossible pour un fichier : " + (e.message || e));
+      alert("Conversion HEIC impossible pour un fichier : " + (e.message || e) +
+        "\n\nAstuce : repartage la photo par Mail/AirDrop (conversion auto), ou sur iPhone : Réglages → Appareil photo → Formats → « Le plus compatible ».");
     } finally {
       if (nHeic) hideBusy();
     }
