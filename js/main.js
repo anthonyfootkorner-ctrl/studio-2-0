@@ -319,7 +319,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   // ══════════ Conversion HEIC (photos iPhone) ══════════
-  // Entièrement locale : vendor/heic2any (libheif embarqué, aucun appel réseau).
+  // Entièrement locale : vendor/libheif-bundle.js (wasm embarqué, aucun appel réseau).
 
   const isHeic = f => /image\/hei[cf]/.test(f.type) || /\.hei[cf]$/i.test(f.name);
 
