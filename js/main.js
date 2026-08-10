@@ -366,12 +366,10 @@ const App = { state: {}, refreshLogoList: null };
 
   function assistantSay(text) {
     const msg = el("assistant-msg");
-    if (!msg || msg.textContent === text) return;
-    msg.classList.add("swap");
-    setTimeout(() => {
-      msg.textContent = text;
-      msg.classList.remove("swap");
-    }, 180);
+    if (!msg || msg.dataset.last === text) return;
+    msg.dataset.last = text;
+    if (window.Avatar) Avatar.say(text);
+    else msg.textContent = text;
   }
 
   // ══════════ Questionnaire de l'étape 1 ══════════
