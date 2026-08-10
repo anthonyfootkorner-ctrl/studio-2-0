@@ -355,6 +355,7 @@ const App = { state: {}, refreshLogoList: null };
   function goQ(n) {
     curQ = n;
     for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
+    if (n === 2) syncFramingCards();
     if (n === 4) renderRecap();
     updateQNav();
   }
@@ -394,10 +395,27 @@ const App = { state: {}, refreshLogoList: null };
     goQ(!typeOk ? 1 : hasVues ? 4 : 3);
   }
 
+  function syncFramingCards() {
+    const v = el("project-framing").value || "source";
+    $$("#framing-cards .photo-card").forEach(b =>
+      b.classList.toggle("active", b.dataset.framing === v));
+  }
+
+  function wireFramingCards() {
+    $$("#framing-cards .photo-card").forEach(b => b.addEventListener("click", () => {
+      el("project-framing").value = b.dataset.framing;
+      el("project-framing").dispatchEvent(new Event("change"));
+      syncFramingCards();
+      // même esprit que la question 1 : choisir fait avancer
+      if (curQ === 2) setTimeout(() => goQ(3), 220);
+    }));
+  }
+
   function wireQuestionnaire() {
     $$(".qnav [data-back]").forEach(b =>
       b.addEventListener("click", () => goQ(+b.dataset.back)));
     el("qs2-next").addEventListener("click", () => goQ(3));
+    wireFramingCards();
     el("qs3-next").addEventListener("click", () => goQ(4));
   }
 

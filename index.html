@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081021">
+<link rel="stylesheet" href="styles.css?v=2026081022">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v21</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v22</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -89,14 +89,34 @@
         <p class="qcount">Question 2 sur 4</p>
         <h2 class="qtitle">Quel <em>cadrage</em> pour la photo finale&nbsp;?</h2>
         
-        <label>Cadrage de sortie
-          <select id="project-framing">
-            <option value="source">Identique à la photo source</option>
-            <option value="full">Plein pied (tête aux pieds)</option>
-            <option value="mid">Plan américain (mi-cuisse)</option>
-            <option value="low">Cadré sur le bas (pantalon : torse → pieds, sans tête)</option>
-          </select>
-        </label>
+        <select id="project-framing" class="hidden" aria-hidden="true">
+          <option value="source">Identique à la photo source</option>
+          <option value="full">Plein pied (tête aux pieds)</option>
+          <option value="mid">Plan américain (mi-cuisse)</option>
+          <option value="low">Cadré sur le bas (pantalon : torse → pieds, sans tête)</option>
+        </select>
+        <div id="framing-cards" class="photo-cards framing">
+          <button class="photo-card" data-framing="source">
+            <span class="ph dashed"><img src="assets/cadre-full.jpg" alt=""></span>
+            <strong>Comme la source</strong>
+            <small>Le cadrage de ta photo est conservé tel quel</small>
+          </button>
+          <button class="photo-card" data-framing="full">
+            <span class="ph"><img src="assets/cadre-full.jpg" alt=""></span>
+            <strong>Plein pied</strong>
+            <small>De la tête aux chaussures</small>
+          </button>
+          <button class="photo-card" data-framing="mid">
+            <span class="ph"><img src="assets/cadre-mid.jpg" alt=""></span>
+            <strong>Plan américain</strong>
+            <small>De la tête à mi-cuisse</small>
+          </button>
+          <button class="photo-card" data-framing="low">
+            <span class="ph"><img src="assets/cadre-low.jpg" alt=""></span>
+            <strong>Cadré sur le bas</strong>
+            <small>Pantalon : torse → pieds, sans tête</small>
+          </button>
+        </div>
         <div class="qnav">
           <button class="btn ghost" data-back="1">← Retour</button>
           <button id="qs2-next" class="btn primary">Continuer</button>
@@ -378,14 +398,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081021"></script>
-<script src="vendor/libheif-bundle.js?v=2026081021"></script>
-<script src="js/config.js?v=2026081021"></script>
-<script src="js/masking.js?v=2026081021"></script>
-<script src="js/persist.js?v=2026081021"></script>
-<script src="js/admin.js?v=2026081021"></script>
-<script src="js/placement.js?v=2026081021"></script>
-<script src="js/colorfix.js?v=2026081021"></script>
-<script src="js/main.js?v=2026081021"></script>
+<script src="vendor/supabase.min.js?v=2026081022"></script>
+<script src="vendor/libheif-bundle.js?v=2026081022"></script>
+<script src="js/config.js?v=2026081022"></script>
+<script src="js/masking.js?v=2026081022"></script>
+<script src="js/persist.js?v=2026081022"></script>
+<script src="js/admin.js?v=2026081022"></script>
+<script src="js/placement.js?v=2026081022"></script>
+<script src="js/colorfix.js?v=2026081022"></script>
+<script src="js/main.js?v=2026081022"></script>
 </body>
 </html>

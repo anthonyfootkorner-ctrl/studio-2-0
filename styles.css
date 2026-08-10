@@ -980,3 +980,21 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 @media (prefers-reduced-motion: reduce) {
   .photo-card, .photo-card:hover { transform: none; }
 }
+
+
+/* Cartes de cadrage : 4 polaroïds compacts, photos 3:4 */
+.photo-cards.framing { gap: 1rem; }
+.photo-cards.framing .photo-card { width: 168px; padding: 8px 8px 0; }
+.photo-cards.framing .photo-card:nth-child(4) { --tilt: 1.8deg; }
+.photo-cards.framing .ph { aspect-ratio: 3 / 4; }
+.photo-cards.framing strong { font-size: 1.15rem; }
+.ph.dashed { position: relative; }
+.ph.dashed::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.ph.dashed img { opacity: 0.82; }
