@@ -581,6 +581,15 @@ const App = { state: {}, refreshLogoList: null };
         prompt: buildPrompt(view, meta, extraNote),
         images,
         aspectRatio: isCreationProject() ? "3:4" : undefined,
+        debug: {
+          op: extraNote ? "regen" : "gen",
+          version: document.getElementById("app-version")?.textContent || "?",
+          type: document.querySelector("#project-type .type-card.active")?.dataset.type || "aucun",
+          framing: el("project-framing").value,
+          angle: view.angle || "?",
+          creation: isCreationProject(),
+          n: images.length,
+        },
       }),
     });
     const out = await resp.json();
@@ -789,7 +798,11 @@ const App = { state: {}, refreshLogoList: null };
           "apikey": SUPABASE_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt, images: [canvasToB64(marked, 1536)] }),
+        body: JSON.stringify({
+          prompt,
+          images: [canvasToB64(marked, 1536)],
+          debug: { op: "clean", version: document.getElementById("app-version")?.textContent || "?" },
+        }),
       });
       const out = await resp.json();
       if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
