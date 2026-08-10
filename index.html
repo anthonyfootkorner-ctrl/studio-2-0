@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081011">
+<link rel="stylesheet" href="styles.css?v=2026081012">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v11</span>
+    <strong>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v12</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -60,7 +60,7 @@
     </div>
     <div class="cols">
       <div class="col">
-        <h2>Type de projet</h2>
+        <h2><span class="num">1</span> Type de projet</h2>
         <div id="project-type" class="type-cards">
           <button class="type-card active" data-type="worn">Photo portée<small>Un mannequin est sur la photo : on le remplace</small></button>
           <button class="type-card" data-type="flat">Produit à plat<small>Vêtement posé : on crée le mannequin</small></button>
@@ -74,7 +74,7 @@
             <option value="low">Cadré sur le bas (pantalon : torse → pieds, sans tête)</option>
           </select>
         </label>
-        <h2>Photos produit (toutes les vues)</h2>
+        <h2><span class="num">2</span> Photos produit (toutes les vues)</h2>
         <div id="drop-source" class="dropzone">
           <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
           <p>Glisser une ou plusieurs photos (face, dos, profil…) ou <button class="linklike" id="btn-browse">parcourir</button></p>
@@ -84,8 +84,20 @@
         <p class="hint">Chaque génération utilise <strong>toutes les photos chargées</strong> comme références du vêtement (le dos à plat renseigne la vue dos, etc.), et la première vue générée sert de référence d'identité pour les suivantes. <strong>Vérifie le champ « Angle » de chaque vue</strong> (face / dos / profil) : c'est lui qui indique à l'IA l'angle à produire ; le nom ne sert qu'au fichier d'export.</p>
       </div>
       <div class="col">
-        <h2>Nouveau mannequin</h2>
+        <h2><span class="num">3</span> Nouveau mannequin</h2>
         <form id="form-model">
+          <label>Profil type (remplit les champs en un clic)
+            <select id="model-preset">
+              <option value="">— Choisir un profil —</option>
+              <option value="h20">Homme sportif, ~20 ans</option>
+              <option value="h30">Homme athlétique, ~30 ans</option>
+              <option value="f25">Femme sportive, ~25 ans</option>
+              <option value="ado">Adolescent, ~15 ans</option>
+              <option value="perso">Personnalisé…</option>
+            </select>
+          </label>
+          <details id="model-details">
+            <summary>Détails du mannequin (ajuster si besoin)</summary>
           <div class="grid2">
             <label>Genre / présentation <input id="m-genre" placeholder="Homme"></label>
             <label>Origine / apparence <input id="m-origine" placeholder="Espagnol"></label>
@@ -100,6 +112,7 @@
             <input id="m-accessoires" placeholder="Retirer le ballon ; bras relâchés le long du corps">
           </label>
           <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel"></label>
+          </details>
           <p class="hint">Fond imposé : gris e-commerce uniforme <code>#F5F5F5</code>. Le vêtement est conservé à l'identique et généré <strong>sans aucun logo</strong> ; les logos originaux seront restaurés pixel pour pixel aux étapes 3-4.</p>
         </form>
         <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
@@ -121,9 +134,11 @@
     </div>
     <div class="row">
       <input id="regen-notes" placeholder="Correction pour régénérer (ex. : le buste a pivoté, redresse-le)">
-      <button id="btn-regenerate" class="btn">Régénérer</button>
-      <button id="btn-clean-zone" class="btn" disabled>Nettoyer la zone encadrée</button>
-      <button id="btn-color-fix" class="btn">Corriger les couleurs</button>
+      <button id="btn-regenerate" class="btn">Régénérer <small class="cost">~0,10 €</small></button>
+      <button id="btn-clean-zone" class="btn" disabled>Nettoyer la zone <small class="cost">~0,10 €</small></button>
+      <button id="btn-color-fix" class="btn">Corriger les couleurs <small class="cost free">gratuit</small></button>
+    </div>
+    <div class="row right">
       <button id="btn-generate-rest" class="btn primary hidden">Générer les vues restantes</button>
       <button id="btn-accept-gen" class="btn primary">Génération validée → Logos</button>
     </div>
@@ -320,14 +335,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081011"></script>
-<script src="vendor/libheif-bundle.js?v=2026081011"></script>
-<script src="js/config.js?v=2026081011"></script>
-<script src="js/masking.js?v=2026081011"></script>
-<script src="js/persist.js?v=2026081011"></script>
-<script src="js/admin.js?v=2026081011"></script>
-<script src="js/placement.js?v=2026081011"></script>
-<script src="js/colorfix.js?v=2026081011"></script>
-<script src="js/main.js?v=2026081011"></script>
+<script src="vendor/supabase.min.js?v=2026081012"></script>
+<script src="vendor/libheif-bundle.js?v=2026081012"></script>
+<script src="js/config.js?v=2026081012"></script>
+<script src="js/masking.js?v=2026081012"></script>
+<script src="js/persist.js?v=2026081012"></script>
+<script src="js/admin.js?v=2026081012"></script>
+<script src="js/placement.js?v=2026081012"></script>
+<script src="js/colorfix.js?v=2026081012"></script>
+<script src="js/main.js?v=2026081012"></script>
 </body>
 </html>

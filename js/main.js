@@ -338,6 +338,32 @@ const App = { state: {}, refreshLogoList: null };
           : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.09).toFixed(2).replace(".", ",")} €)`;
   }
 
+  const MODEL_PRESETS = {
+    h20: { genre: "Homme", origine: "", age: "Environ 20 ans", morpho: "Sportif", cheveux: "Bruns courts et texturés", barbe: "Sans barbe", expression: "Expression calme" },
+    h30: { genre: "Homme", origine: "", age: "Environ 30 ans", morpho: "Athlétique", cheveux: "Bruns courts", barbe: "Barbe courte soignée", expression: "Expression confiante" },
+    f25: { genre: "Femme", origine: "", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Châtains attachés en queue de cheval", barbe: "", expression: "Expression naturelle" },
+    ado: { genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
+  };
+
+  function wirePresets() {
+    el("model-preset").addEventListener("change", () => {
+      const key = el("model-preset").value;
+      if (key === "perso" || !key) {
+        if (key === "perso") el("model-details").open = true;
+        return;
+      }
+      const p = MODEL_PRESETS[key];
+      el("m-genre").value = p.genre;
+      el("m-origine").value = p.origine;
+      el("m-age").value = p.age;
+      el("m-morpho").value = p.morpho;
+      el("m-cheveux").value = p.cheveux;
+      el("m-barbe").value = p.barbe;
+      el("m-expression").value = p.expression;
+      Persist.saveSoon();
+    });
+  }
+
   function wireProject() {
     $$("#project-type .type-card").forEach(b => b.addEventListener("click", () => {
       App.state.projectType = b.dataset.type;
@@ -1272,6 +1298,7 @@ const App = { state: {}, refreshLogoList: null };
     resetProject(false);
     wireAuth();
     wireProject();
+    wirePresets();
     wireSource();
     wireInventory();
     wireCleanZone();
