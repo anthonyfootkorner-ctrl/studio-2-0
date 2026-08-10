@@ -24,9 +24,9 @@ const App = { state: {}, refreshLogoList: null };
     App.state.viewSeq = 0;
     App.state.logoLibrary = [];
     App.state.libSeq = 0;
-    App.state.projectType = "worn";
+    App.state.projectType = null; // choix obligatoire : pas de défaut silencieux
     App.state.framing = "source";
-    $$("#project-type .type-card").forEach(b => b.classList.toggle("active", b.dataset.type === "worn"));
+    $$("#project-type .type-card").forEach(b => b.classList.remove("active"));
     el("project-framing").value = "source";
     App.state.sourceCanvas = null;
     App.state.genCanvas = null;
@@ -188,6 +188,14 @@ const App = { state: {}, refreshLogoList: null };
 
   // ══════════ Étape 1 : vues sources ══════════
 
+  function detectAngle(name) {
+    const n = name.toLowerCase();
+    if (/dos|back|arri/.test(n)) return "dos";
+    if (/face|front|avant|devant/.test(n)) return "face";
+    if (/profil|side|cote|côté/.test(n)) return "profil";
+    return null;
+  }
+
   function addViewFile(file) {
     if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
     // Un fichier nommé « logo… » est un logo à détourer, pas une vue à générer.
@@ -212,6 +220,7 @@ const App = { state: {}, refreshLogoList: null };
       const v = {
         id: App.state.viewSeq,
         name: fromFile || defaults[nVues] || "vue-" + App.state.viewSeq,
+        angle: detectAngle(file.name) || defaults[nVues] || "face",
         role: "vue",
         source: c, gen: null, master: null,
         logos: [], logoSeq: 0, exported: false,
@@ -278,7 +287,18 @@ const App = { state: {}, refreshLogoList: null };
         updateGenerateButton();
         Persist.saveSoon();
       });
+      const angleSel = document.createElement("select");
+      angleSel.innerHTML =
+        '<option value="face">Angle : face</option>' +
+        '<option value="dos">Angle : dos</option>' +
+        '<option value="profil">Angle : profil</option>';
+      angleSel.value = v.angle || "face";
+      angleSel.addEventListener("change", () => {
+        v.angle = angleSel.value;
+        Persist.saveSoon();
+      });
       box.append(nameInput, dims, roleSel);
+      if (!isRef && v.role !== "pant") box.append(angleSel);
       const bDel = document.createElement("button");
       bDel.className = "btn ghost";
       bDel.textContent = "✕";
@@ -303,6 +323,12 @@ const App = { state: {}, refreshLogoList: null };
     const btn = el("btn-generate");
     btn.disabled = todo === 0;
     const hasIdentity = vues.some(v => v.gen);
+    const typeChoisi = !!document.querySelector("#project-type .type-card.active");
+    if (!typeChoisi) btn.disabled = true;
+    if (!typeChoisi && vues.length > 0) {
+      btn.textContent = "⚠ Choisis d'abord le type de projet (porté / à plat / ghost)";
+      return;
+    }
     btn.textContent = vues.length === 0
       ? "Générer toutes les vues"
       : todo === 0
@@ -316,6 +342,7 @@ const App = { state: {}, refreshLogoList: null };
     $$("#project-type .type-card").forEach(b => b.addEventListener("click", () => {
       App.state.projectType = b.dataset.type;
       $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
+      updateGenerateButton();
       Persist.saveSoon();
     }));
     el("project-framing").addEventListener("change", () => {
@@ -435,7 +462,7 @@ const App = { state: {}, refreshLogoList: null };
         : "Cette photo montre le produit à plat, non porté.";
       lines.push("Photo e-commerce studio. " + intro + (withRef ? " " + refPhrase : ""));
       lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
-      lines.push(`VUE À PRODUIRE : « ${view.name} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
+      lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
       lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
@@ -471,7 +498,7 @@ const App = { state: {}, refreshLogoList: null };
       "FIDÉLITÉ ABSOLUE AU PRODUIT : reproduis les couleurs EXACTES du vêtement (teinte, saturation, luminosité) telles qu'elles apparaissent sur les photos — sans embellir, sans réchauffer ni adoucir, sans modifier la balance des blancs. Reproduis aussi TOUS les éléments graphiques : bandes, traits, lignes contrastées, empiècements, panneaux de couleur, surpiqûres — n'en supprime, déplace ni simplifie AUCUN, même petit ou discret.");
     lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
-      "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
+      "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.",
     );
     if (framing === "full") {
       lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Conserve le format (ratio) de la première image.");
