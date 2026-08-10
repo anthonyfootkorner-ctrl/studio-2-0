@@ -460,8 +460,9 @@ const App = { state: {}, refreshLogoList: null };
       const intro = type === "ghost"
         ? "packshots « ghost » (vêtement en volume, porté par personne)"
         : "photos du produit à plat, non porté";
-      lines.push("MISSION : CRÉE une photo e-commerce studio entièrement NOUVELLE. Les images fournies sont des RÉFÉRENCES PRODUIT uniquement (" + intro + ") : elles ne doivent PAS être retouchées, prolongées ni réutilisées comme fond ou composition. Ne reprends RIEN de leur décor — ni table, ni sol, ni objets, ni pièce, ni le vêtement posé." + (withRef ? " " + refPhrase : ""));
-      lines.push(`Sujet de la nouvelle photo : un mannequin (${desc}) portant EXACTEMENT le vêtement montré sur les références.`);
+      lines.push("TÂCHE : ÉDITE l'image 1 — un fond studio VIDE (gris #F5F5F5). AJOUTE sur ce fond un mannequin portant le produit des références. Le résultat est l'image 1 remplie avec le mannequin en pied de photo e-commerce — rien d'autre.");
+      lines.push("Les autres images sont des références produit (" + intro + ") : reproduis-en fidèlement le VÊTEMENT, mais n'en réutilise NI le décor, NI la table, NI le sol, NI la composition. Aucun élément de leurs arrière-plans ne doit apparaître." + (withRef ? " " + refPhrase : ""));
+      lines.push(`Le mannequin : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
@@ -482,6 +483,7 @@ const App = { state: {}, refreshLogoList: null };
 
     // Rôles explicites et numérotés de chaque image fournie.
     const roleTxt = {
+      base: "le FOND STUDIO VIDE de la photo finale — c'est la base à éditer : place le mannequin dessus, ne change ni la couleur ni l'uniformité du fond.",
       main: (type === "flat" || type === "ghost")
         ? "la référence produit principale (la face du vêtement correspondant à la vue à produire). RÉFÉRENCE UNIQUEMENT : ne pas retoucher, ne pas réutiliser son décor ni sa composition."
         : "la photo produit source à transformer",
@@ -558,10 +560,24 @@ const App = { state: {}, refreshLogoList: null };
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Session expirée, reconnecte-toi.");
     const ref = identityRef(view);
-    // Ordre des images : source, [identité], pantalons, autres photos produit.
-    // Les pantalons passent avant les autres références (plafond de 5 images).
-    const meta = [{ kind: "main" }];
-    const images = [canvasToB64(view.source, 1536)];
+    const creation = isCreationProject();
+    // Ordre des images : [fond studio vierge en création], source, [identité],
+    // pantalons, autres photos produit (plafond de 5 images).
+    // Astuce anti-décor : le modèle « édite » toujours la première image reçue —
+    // en mode création on lui donne donc un fond studio VIDE comme base à éditer.
+    const meta = [];
+    const images = [];
+    if (creation) {
+      const base = document.createElement("canvas");
+      base.width = 1536; base.height = 2048; // portrait 3:4
+      const bctx = base.getContext("2d");
+      bctx.fillStyle = "#F5F5F5";
+      bctx.fillRect(0, 0, base.width, base.height);
+      images.push(canvasToB64(base, 2048));
+      meta.push({ kind: "base" });
+    }
+    images.push(canvasToB64(view.source, creation ? 1024 : 1536));
+    meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
     if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
     const others = App.state.views.filter(v => v !== view)
       .sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
