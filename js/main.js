@@ -141,6 +141,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
+    if (window.Avatar3D && Avatar3D.setStage) Avatar3D.setStage(n === 1 ? "big" : "off");
     if (n === 1) syncQuestionnaire();
     else assistantSay(STEP_MESSAGES[n]);
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
@@ -368,7 +369,8 @@ const App = { state: {}, refreshLogoList: null };
     const msg = el("assistant-msg");
     if (!msg || msg.dataset.last === text) return;
     msg.dataset.last = text;
-    if (window.Avatar) Avatar.say(text);
+    if (window.Avatar3D && Avatar3D.ready) Avatar3D.say(text);
+    else if (window.Avatar) Avatar.say(text);
     else msg.textContent = text;
   }
 
@@ -1306,6 +1308,11 @@ const App = { state: {}, refreshLogoList: null };
 
   function wireNav() {
     el("btn-generate").addEventListener("click", generateAll);
+    el("btn-voice").addEventListener("click", () => {
+      const muted = window.Avatar3D ? Avatar3D.toggleMute() : true;
+      el("btn-voice").textContent = muted ? "🔇" : "🔊";
+    });
+    if (window.Avatar3D && Avatar3D.muted) el("btn-voice").textContent = "🔇";
     el("btn-generate-rest").addEventListener("click", generateAll);
     el("btn-clean-zone").addEventListener("click", cleanZone);
     el("btn-color-fix").addEventListener("click", () => ColorFix.open(() => {
