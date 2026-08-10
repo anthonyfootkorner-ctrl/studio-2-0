@@ -141,9 +141,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
-    if (window.Photographe && Photographe.setStage) Photographe.setStage(n === 1 ? "big" : "off");
     if (n === 1) syncQuestionnaire();
-    else assistantSay(STEP_MESSAGES[n]);
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
     if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
@@ -350,30 +348,6 @@ const App = { state: {}, refreshLogoList: null };
     ado: { genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
   };
 
-  // ══════════ Assistant ══════════
-
-  const Q_MESSAGES = {
-    1: "Quel type de photo as-tu ?",
-    2: "Quel cadrage veux-tu pour la photo finale ?",
-    3: "Ajoute-moi les photos du produit — toutes les faces m'aident à être fidèle.",
-    4: "Décris-moi le mannequin, ou choisis un profil type.",
-  };
-  const STEP_MESSAGES = {
-    2: "Contrôle bien : mannequin, vêtement, fond. Une trace de logo ? Encadre-la, je nettoie.",
-    3: "Trace un cadre sur chaque marquage de la source — zoome pour les petits logos ton sur ton.",
-    4: "Place chaque logo à sa position exacte. Vérifie à la loupe, elle est à 400 %.",
-    5: "Dernier contrôle et export : je te sors un WebP optimisé de 200 Ko max.",
-  };
-
-  function assistantSay(text) {
-    const msg = el("assistant-msg");
-    if (!msg || msg.dataset.last === text) return;
-    msg.dataset.last = text;
-    if (window.Photographe && Photographe.ready) Photographe.say(text);
-    else if (window.Avatar) Avatar.say(text);
-    else msg.textContent = text;
-  }
-
   // ══════════ Questionnaire de l'étape 1 ══════════
 
   let curQ = 1;
@@ -383,7 +357,6 @@ const App = { state: {}, refreshLogoList: null };
     for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
     if (n === 4) renderRecap();
     updateQNav();
-    assistantSay(Q_MESSAGES[n]);
   }
 
   function updateQNav() {
@@ -424,8 +397,8 @@ const App = { state: {}, refreshLogoList: null };
   function wireQuestionnaire() {
     $$(".qnav [data-back]").forEach(b =>
       b.addEventListener("click", () => goQ(+b.dataset.back)));
-    el("qs2-next").addEventListener("click", () => { if (window.Photographe) Photographe.react("positive"); goQ(3); });
-    el("qs3-next").addEventListener("click", () => { if (window.Photographe) Photographe.react("positive"); goQ(4); });
+    el("qs2-next").addEventListener("click", () => goQ(3));
+    el("qs3-next").addEventListener("click", () => goQ(4));
   }
 
   function wirePresets() {
@@ -453,7 +426,6 @@ const App = { state: {}, refreshLogoList: null };
       $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
       updateGenerateButton();
       Persist.saveSoon();
-      if (window.Photographe && Photographe.react) Photographe.react("positive");
       // Esprit questionnaire : choisir une carte fait avancer (délai = feedback tactile)
       if (curQ === 1) setTimeout(() => goQ(2), 220);
     }));
@@ -746,10 +718,6 @@ const App = { state: {}, refreshLogoList: null };
     view.gen = gen;
     view.exported = false;
     if (view === currentView()) App.state.genCanvas = gen;
-    // Le visage du mannequin généré devient le portrait scanné de l'assistant.
-    if (window.Avatar && Avatar.adopt && isVue(view) && (view.angle || "face") === "face") {
-      try { Avatar.adopt(gen); } catch {}
-    }
   }
 
   async function generateAll() {
@@ -1309,11 +1277,6 @@ const App = { state: {}, refreshLogoList: null };
 
   function wireNav() {
     el("btn-generate").addEventListener("click", generateAll);
-    el("btn-voice").addEventListener("click", () => {
-      const muted = window.Photographe ? Photographe.toggleMute() : true;
-      el("btn-voice").textContent = muted ? "🔇" : "🔊";
-    });
-    if (window.Photographe && Photographe.muted) el("btn-voice").textContent = "🔇";
     el("btn-generate-rest").addEventListener("click", generateAll);
     el("btn-clean-zone").addEventListener("click", cleanZone);
     el("btn-color-fix").addEventListener("click", () => ColorFix.open(() => {

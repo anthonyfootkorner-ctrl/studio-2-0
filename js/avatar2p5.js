@@ -12,7 +12,7 @@ const Photographe = (() => {
   const CAL = {
     eyeL: { cx: 555, cy: 389, rx: 40, ry: 20 },
     eyeR: { cx: 692, cy: 380, rx: 42, ry: 20 },
-    mouth: { cx: 597, cy: 610, w: 210, h: 96 },
+    mouth: { cx: 617, cy: 547, w: 150, h: 62 },
     headPivot: { x: 620, y: 560 },
     skinSample: { x: 555, y: 445 }, // sous l'œil : couleur des paupières
     cameraZone: { y: 980 },         // sangle + boîtier (balancement secondaire)
@@ -47,16 +47,16 @@ const Photographe = (() => {
   // ── Visèmes procéduraux (transformations de la zone bouche) ──
   const VIS = {
     sil: { sx: 1, sy: 1, open: 0 },
-    aa: { sx: 1.02, sy: 1.3, open: 0.55 },
-    E: { sx: 1.07, sy: 1.12, open: 0.3 },
-    I: { sx: 1.1, sy: 1.04, open: 0.16 },
-    O: { sx: 0.86, sy: 1.25, open: 0.5 },
-    U: { sx: 0.8, sy: 1.12, open: 0.32 },
-    PP: { sx: 0.98, sy: 0.9, open: 0 },
-    FF: { sx: 1.03, sy: 0.96, open: 0.08 },
-    SS: { sx: 1.06, sy: 1.02, open: 0.12 },
-    CH: { sx: 0.92, sy: 1.1, open: 0.22 },
-    DD: { sx: 1.0, sy: 1.08, open: 0.2 },
+    aa: { sx: 1.04, sy: 1.5, open: 0.85 },
+    E: { sx: 1.1, sy: 1.22, open: 0.45 },
+    I: { sx: 1.14, sy: 1.08, open: 0.25 },
+    O: { sx: 0.8, sy: 1.42, open: 0.75 },
+    U: { sx: 0.74, sy: 1.22, open: 0.5 },
+    PP: { sx: 0.96, sy: 0.86, open: 0 },
+    FF: { sx: 1.05, sy: 0.94, open: 0.12 },
+    SS: { sx: 1.09, sy: 1.04, open: 0.18 },
+    CH: { sx: 0.88, sy: 1.18, open: 0.35 },
+    DD: { sx: 1.0, sy: 1.14, open: 0.3 },
   };
 
   function charViseme(ch) {
@@ -190,9 +190,9 @@ const Photographe = (() => {
     ctx.drawImage(img, bx, by, mo.w, mo.h, bx, by, mo.w, mo.h);
     if (v.open > 0.12) {
       // bouche entrouverte : intérieur sombre derrière la zone étirée
-      ctx.fillStyle = "rgba(38,16,12,0.9)";
+      ctx.fillStyle = "rgba(30,12,10,0.95)";
       ctx.beginPath();
-      ctx.ellipse(mo.cx, mo.cy + mo.h * 0.06, mo.w * 0.24 * v.sx, mo.h * 0.3 * v.open, 0, 0, 7);
+      ctx.ellipse(mo.cx, mo.cy + mo.h * 0.08, mo.w * 0.3 * v.sx, mo.h * 0.42 * v.open, 0, 0, 7);
       ctx.fill();
     }
     // la zone bouche redessinée avec l'échelle du visème (autour de la lèvre sup.)
@@ -280,7 +280,7 @@ const Photographe = (() => {
       visemeTarget.smile = state === "react" && reactKind === "positive" ? 0.5
         : state === "listen" || state === "idle" ? 0.12 : 0;
       for (const key of ["sx", "sy", "open", "smile"]) {
-        viseme[key] += ((visemeTarget[key] ?? (key === "sx" || key === "sy" ? 1 : 0)) - viseme[key]) * 0.32;
+        viseme[key] += ((visemeTarget[key] ?? (key === "sx" || key === "sy" ? 1 : 0)) - viseme[key]) * 0.45;
       }
 
       // ── Dessin ──

@@ -8,24 +8,24 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #F5F5F2;
-  --panel: #FFFFFF;
-  --panel2: #ECECE9;
-  --panel3: #E2E2DE;
-  --text: #0A0A0A;
-  --muted: #85807a;
-  --accent: #C65E29;
-  --accent-strong: #A04A1D;
-  --accent-soft: rgba(198, 94, 41, 0.10);
+  --bg: #0D0D0C;
+  --panel: #171716;
+  --panel2: #1F1F1D;
+  --panel3: #282826;
+  --text: #F2F1ED;
+  --muted: #98948D;
+  --accent: #D9E86B;
+  --accent-strong: #C4D554;
+  --accent-soft: rgba(217, 232, 107, 0.12);
   --success: #1a9a55;
   --danger: #d33d33;
   --warn: #b97c14;
-  --border: rgba(30, 25, 20, 0.10);
-  --border-strong: rgba(30, 25, 20, 0.18);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.18);
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow-1: 0 1px 2px rgba(30, 25, 20, 0.05), 0 8px 24px rgba(30, 25, 20, 0.06);
-  --shadow-2: 0 2px 6px rgba(30, 25, 20, 0.07), 0 24px 60px rgba(30, 25, 20, 0.12);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.5);
 
   /* Courbes fortes — les easings CSS natifs manquent de caractère */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -41,7 +41,7 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-weight: 300;
   background:
-    radial-gradient(1100px 500px at 70% -10%, rgba(198, 94, 41, 0.05), transparent 60%),
+    radial-gradient(1100px 500px at 70% -10%, rgba(217, 232, 107, 0.04), transparent 60%),
     var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -62,7 +62,7 @@ h1, h2, h3, h4 { letter-spacing: -0.015em; font-weight: 500; }
 h2 { font-size: 1.25rem; margin: 0.2rem 0 0.5rem; }
 h3 { font-size: 1rem; margin: 0.8rem 0 0.5rem; }
 strong { font-weight: 600; }
-::selection { background: rgba(198, 94, 41, 0.22); }
+::selection { background: rgba(217, 232, 107, 0.3); }
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -214,7 +214,7 @@ input[type="range"] { cursor: ew-resize; }
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.65rem 1.2rem;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(13, 13, 12, 0.75);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
@@ -573,7 +573,7 @@ label.inline { display: flex; align-items: center; gap: 0.4rem; margin: 0; color
 .busy {
   position: fixed;
   inset: 0;
-  background: rgba(250, 249, 247, 0.85);
+  background: rgba(8, 8, 7, 0.85);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 100;
@@ -611,7 +611,7 @@ label.inline { display: flex; align-items: center; gap: 0.4rem; margin: 0; color
 
 /* ── Passe UX : sections numérotées, coûts affichés ────────── */
 
-h2 .num {
+h2 .num { color: #0B0B0A !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -773,9 +773,9 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 .topbar {
   top: 14px;
   border-radius: 22px 22px 0 0;
-  background: rgba(245, 245, 242, 0.82);
+  background: rgba(13, 13, 12, 0.82);
 }
-.brand-dot {
+.brand-dot { /* accent citron */
   display: inline-block;
   width: 10px;
   height: 10px;
@@ -817,15 +817,16 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 .btn { border-radius: 999px; }
 .btn.big { border-radius: 999px; }
 .btn.primary {
-  background: #050505;
-  border-color: #050505;
+  background: #F2F1ED;
+  border-color: #F2F1ED;
+  color: #0B0B0A;
   box-shadow: none;
 }
 @media (hover: hover) and (pointer: fine) {
-  .btn.primary:hover { background: #1e1e1e; border-color: #1e1e1e; }
+  .btn.primary:hover { background: #ffffff; border-color: #ffffff; }
 }
 .btn.success { border-radius: 999px; }
-.step.active { background: #050505; border-color: #050505; }
+.step.active { background: var(--accent); border-color: var(--accent); color: #0B0B0A; }
 .step.done { color: var(--accent); }
 
 /* Cartes : soulèvement au survol (3-4 px, ombre renforcée) */
@@ -893,3 +894,89 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 /* ── Avatar photographe 2.5D ───────────────────────────────── */
 
 .a25-canvas { width: 100%; height: 100%; display: block; }
+
+
+/* ═══ Questionnaire éditorial : typo géante + cartes polaroïd ═══ */
+
+.qcount { color: var(--accent); }
+.qtitle {
+  font-size: clamp(1.9rem, 4.5vw, 3.1rem);
+  text-align: center;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  margin: 0.5rem 0 2rem;
+  line-height: 1.12;
+}
+.qtitle em {
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  color: #0B0B0A;
+  background: var(--accent);
+  padding: 0 0.22em 0.05em;
+  border-radius: 999px;
+}
+.qwrap { max-width: 860px; }
+.qstep { text-align: center; }
+.qstep .dropzone, .qstep .views-list, .qstep form, .qstep .hint, .qstep label { text-align: left; }
+
+.photo-cards {
+  display: flex;
+  gap: 1.4rem;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+  padding: 0.6rem 0 0.4rem;
+}
+.photo-card {
+  background: #FCFBF8;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 10px 0;
+  width: 215px;
+  cursor: pointer;
+  color: #191817;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out), outline-color 150ms ease;
+  outline: 3px solid transparent;
+  outline-offset: 3px;
+}
+.photo-card:nth-child(1) { --tilt: -2.2deg; }
+.photo-card:nth-child(2) { --tilt: 1.6deg; }
+.photo-card:nth-child(3) { --tilt: -1.2deg; }
+.photo-card .ph {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #eee;
+}
+.photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-card strong {
+  display: block;
+  font-family: "Snell Roundhand", "Savoye LET", "Brush Script MT", cursive;
+  font-weight: 400;
+  font-size: 1.35rem;
+  margin: 0.45rem 0 0.05rem;
+}
+.photo-card small {
+  display: block;
+  color: #6d6a66;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  padding-bottom: 0.75rem;
+}
+@media (hover: hover) and (pointer: fine) {
+  .photo-card:hover {
+    transform: rotate(0deg) translateY(-8px) scale(1.03);
+    box-shadow: 0 22px 44px rgba(0, 0, 0, 0.6);
+  }
+}
+.photo-card:active { transform: rotate(0deg) translateY(-3px) scale(1.0); }
+.photo-card.active { outline-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .photo-card, .photo-card:hover { transform: none; }
+}

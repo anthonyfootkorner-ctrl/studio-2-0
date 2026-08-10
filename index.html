@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081019">
+<link rel="stylesheet" href="styles.css?v=2026081021">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v19</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v21</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -51,21 +51,6 @@
     </div>
   </header>
 
-  <div id="avatar-stage" class="avatar-stage hidden"></div>
-
-  <div id="assistant" class="assistant">
-    <div class="avatar3d" id="avatar3d" aria-hidden="true">
-      <div class="a3-rig" id="a3-rig">
-        <canvas id="a3-canvas" width="220" height="220"></canvas>
-      </div>
-    </div>
-    <div class="assistant-body">
-      <strong>Studio</strong><span class="assistant-role">assistant shooting</span>
-      <button id="btn-voice" class="btn ghost btn-voice" title="Activer/couper la voix">🔊</button>
-      <p id="assistant-msg">Bienvenue ! On prépare ton shooting.</p>
-    </div>
-  </div>
-
   <div id="view-switcher" class="view-switcher hidden"></div>
 
   <!-- Étape 1 : source + description -->
@@ -79,16 +64,30 @@
 
       <div class="qstep" id="qs-1">
         <p class="qcount">Question 1 sur 4</p>
+        <h2 class="qtitle">Quel type de <em>photo</em> as-tu&nbsp;?</h2>
         
-        <div id="project-type" class="type-cards vertical">
-          <button class="type-card" data-type="worn">Photo portée<small>Un mannequin est déjà sur la photo : on le remplace</small></button>
-          <button class="type-card" data-type="flat">Produit à plat<small>Vêtement posé ou plié : on crée le mannequin</small></button>
-          <button class="type-card" data-type="ghost">Photo ghost<small>Mannequin invisible : on crée le mannequin</small></button>
+        <div id="project-type" class="photo-cards">
+          <button class="type-card photo-card" data-type="worn">
+            <span class="ph"><img src="assets/ex-portee.jpg" alt=""></span>
+            <strong>Photo portée</strong>
+            <small>Un mannequin est sur la photo : on le remplace</small>
+          </button>
+          <button class="type-card photo-card" data-type="flat">
+            <span class="ph"><img src="assets/ex-aplat.jpg" alt=""></span>
+            <strong>Produit à plat</strong>
+            <small>Vêtement posé ou plié : on crée le mannequin</small>
+          </button>
+          <button class="type-card photo-card" data-type="ghost">
+            <span class="ph"><img src="assets/ex-ghost.svg" alt=""></span>
+            <strong>Photo ghost</strong>
+            <small>Mannequin invisible : on crée le mannequin</small>
+          </button>
         </div>
       </div>
 
       <div class="qstep hidden" id="qs-2">
         <p class="qcount">Question 2 sur 4</p>
+        <h2 class="qtitle">Quel <em>cadrage</em> pour la photo finale&nbsp;?</h2>
         
         <label>Cadrage de sortie
           <select id="project-framing">
@@ -106,6 +105,7 @@
 
       <div class="qstep hidden" id="qs-3">
         <p class="qcount">Question 3 sur 4</p>
+        <h2 class="qtitle">Ajoute les <em>photos</em> du produit</h2>
         
         <div id="drop-source" class="dropzone">
           <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
@@ -122,6 +122,7 @@
 
       <div class="qstep hidden" id="qs-4">
         <p class="qcount">Question 4 sur 4</p>
+        <h2 class="qtitle">Décris ton <em>mannequin</em></h2>
         
         <form id="form-model">
           <label>Profil type (remplit les champs en un clic)
@@ -377,16 +378,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081019"></script>
-<script src="vendor/libheif-bundle.js?v=2026081019"></script>
-<script src="js/config.js?v=2026081019"></script>
-<script src="js/masking.js?v=2026081019"></script>
-<script src="js/persist.js?v=2026081019"></script>
-<script src="js/avatar.js?v=2026081019"></script>
-<script src="js/avatar2p5.js?v=2026081019"></script>
-<script src="js/admin.js?v=2026081019"></script>
-<script src="js/placement.js?v=2026081019"></script>
-<script src="js/colorfix.js?v=2026081019"></script>
-<script src="js/main.js?v=2026081019"></script>
+<script src="vendor/supabase.min.js?v=2026081021"></script>
+<script src="vendor/libheif-bundle.js?v=2026081021"></script>
+<script src="js/config.js?v=2026081021"></script>
+<script src="js/masking.js?v=2026081021"></script>
+<script src="js/persist.js?v=2026081021"></script>
+<script src="js/admin.js?v=2026081021"></script>
+<script src="js/placement.js?v=2026081021"></script>
+<script src="js/colorfix.js?v=2026081021"></script>
+<script src="js/main.js?v=2026081021"></script>
 </body>
 </html>
