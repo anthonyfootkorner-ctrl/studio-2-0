@@ -60,6 +60,19 @@
     </div>
     <div class="cols">
       <div class="col">
+        <h2>Type de projet</h2>
+        <div id="project-type" class="type-cards">
+          <button class="type-card active" data-type="worn">Photo portée<small>Un mannequin est sur la photo : on le remplace</small></button>
+          <button class="type-card" data-type="flat">Produit à plat<small>Vêtement posé : on crée le mannequin</small></button>
+          <button class="type-card" data-type="ghost">Photo ghost<small>Mannequin invisible : on crée le mannequin</small></button>
+        </div>
+        <label>Cadrage de sortie
+          <select id="project-framing">
+            <option value="source">Identique à la photo source</option>
+            <option value="full">Plein pied (tête aux pieds)</option>
+            <option value="mid">Plan américain (mi-cuisse)</option>
+          </select>
+        </label>
         <h2>Photos produit (toutes les vues)</h2>
         <div id="drop-source" class="dropzone">
           <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp" multiple hidden>
@@ -196,6 +209,9 @@
         <div id="sel-controls" class="hidden">
           <label>Taille : <span id="sel-scale-label">100 %</span>
             <input type="range" id="sel-scale" min="5" max="300" value="100">
+          </label>
+          <label>Rotation : <span id="sel-rotation-label">0°</span>
+            <input type="range" id="sel-rotation" min="-180" max="180" value="0" step="1">
           </label>
           <label>Fusion du bord (halo)
             <select id="sel-edge">

@@ -73,6 +73,8 @@ const Persist = (() => {
         version: 2,
         savedAt: Date.now(),
         cur: App.state.cur,
+        projectType: App.state.projectType || "worn",
+        framing: App.state.framing || "source",
         viewSeq: App.state.viewSeq || views.length,
         libSeq: App.state.libSeq || 0,
         logoLibrary: (App.state.logoLibrary || []).map(it => ({
@@ -130,6 +132,13 @@ const Persist = (() => {
     const s = App.state;
     s.views = [];
     s.viewSeq = data.viewSeq || data.views.length;
+    // Migration : les anciens projets utilisaient un drapeau « à plat » par vue.
+    s.projectType = data.projectType || (data.views.some(v => v.flat) ? "flat" : "worn");
+    s.framing = data.framing || "source";
+    document.querySelectorAll("#project-type .type-card").forEach(b =>
+      b.classList.toggle("active", b.dataset.type === s.projectType));
+    const framingSel = document.getElementById("project-framing");
+    if (framingSel) framingSel.value = s.framing;
     s.libSeq = data.libSeq || 0;
     s.logoLibrary = (data.logoLibrary || []).map(it => {
       const mask = it.mask ? new Uint8ClampedArray(it.mask) : null;

@@ -354,6 +354,35 @@ input[type="range"] { cursor: ew-resize; }
 }
 .viewport canvas { display: block; cursor: crosshair; }
 
+/* ── Type de projet ────────────────────────────────────────── */
+
+.type-cards { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.type-card {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out), border-color 150ms ease, background-color 150ms ease;
+}
+.type-card small { font-weight: 300; color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+.type-card:active { transform: scale(0.97); }
+.type-card.active { border-color: var(--accent); background: var(--accent-soft); }
+.type-card.active small { color: var(--accent-strong); }
+@media (hover: hover) and (pointer: fine) {
+  .type-card:not(.active):hover { border-color: var(--accent); }
+}
+#project-framing { max-width: 320px; }
+
 /* ── Liste des vues + sélecteur ────────────────────────────── */
 
 .views-list { list-style: none; padding: 0; margin: 0.8rem 0 0.4rem; }

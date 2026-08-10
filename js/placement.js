@@ -33,6 +33,22 @@ const Placement = (() => {
     };
   }
 
+  // Dessine le logo avec sa rotation éventuelle, autour du centre de sa zone posée.
+  function drawPlaced(ctx, logo, scale) {
+    const r = placedRect(logo);
+    const rot = (logo.placement.rotation || 0) * Math.PI / 180;
+    const canvas = effectiveCanvas(logo);
+    if (!rot) {
+      ctx.drawImage(canvas, r.x * scale, r.y * scale, r.w * scale, r.h * scale);
+      return;
+    }
+    ctx.save();
+    ctx.translate((r.x + r.w / 2) * scale, (r.y + r.h / 2) * scale);
+    ctx.rotate(rot);
+    ctx.drawImage(canvas, -r.w * scale / 2, -r.h * scale / 2, r.w * scale, r.h * scale);
+    ctx.restore();
+  }
+
   // ---- Rendu ----
 
   function renderAll() {
@@ -64,8 +80,7 @@ const Placement = (() => {
       }
       // Logo posé sur la cible.
       const r = placedRect(logo);
-      dctx.drawImage(effectiveCanvas(logo),
-        r.x * displayScale, r.y * displayScale, r.w * displayScale, r.h * displayScale);
+      drawPlaced(dctx, logo, displayScale);
       if (logo === selected) {
         dctx.strokeStyle = "#ea580c";
         dctx.lineWidth = 1.5;
@@ -100,14 +115,15 @@ const Placement = (() => {
     ctx.drawImage(genCanvas, 0, 0);
     for (const logo of logos) {
       const r = placedRect(logo);
-      if (logo.placement.scale === 100) {
+      const rot = logo.placement.rotation || 0;
+      if (logo.placement.scale === 100 && !rot) {
         // Pose pixel pour pixel, sans interpolation.
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(effectiveCanvas(logo), Math.round(r.x), Math.round(r.y));
       } else {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(effectiveCanvas(logo), r.x, r.y, r.w, r.h);
+        drawPlaced(ctx, logo, 1);
       }
     }
     return c;
@@ -131,6 +147,8 @@ const Placement = (() => {
     if (logo) {
       el("sel-scale").value = logo.placement.scale;
       el("sel-scale-label").textContent = Math.round(logo.placement.scale) + " %";
+      el("sel-rotation").value = logo.placement.rotation || 0;
+      el("sel-rotation-label").textContent = Math.round(logo.placement.rotation || 0) + "°";
       el("sel-edge").value = logo.placement.contract + "," + logo.placement.feather;
     }
     renderAll();
@@ -182,6 +200,21 @@ const Placement = (() => {
       if (!selected) return;
       selected.placement.scale = +el("sel-scale").value;
       el("sel-scale-label").textContent = selected.placement.scale + " %";
+      renderAll();
+      Persist.saveSoon();
+    });
+    el("sel-rotation").addEventListener("input", () => {
+      if (!selected) return;
+      selected.placement.rotation = +el("sel-rotation").value;
+      el("sel-rotation-label").textContent = selected.placement.rotation + "°";
+      renderAll();
+      Persist.saveSoon();
+    });
+    el("sel-rotation").addEventListener("dblclick", () => {
+      if (!selected) return;
+      selected.placement.rotation = 0;
+      el("sel-rotation").value = 0;
+      el("sel-rotation-label").textContent = "0°";
       renderAll();
       Persist.saveSoon();
     });

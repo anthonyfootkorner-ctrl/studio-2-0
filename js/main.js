@@ -15,12 +15,19 @@ const App = { state: {}, refreshLogoList: null };
   // courante (lus par placement.js et masking.js). Ne jamais réassigner logos
   // ailleurs que dans selectView — muter le tableau en place (push/splice).
 
+  // Un « vrai » sujet à générer (par opposition aux références produit et pantalons)
+  const isVue = v => !v.role || v.role === "vue";
+
   function resetProject(keepModel) {
     App.state.views = [];
     App.state.cur = -1;
     App.state.viewSeq = 0;
     App.state.logoLibrary = [];
     App.state.libSeq = 0;
+    App.state.projectType = "worn";
+    App.state.framing = "source";
+    $$("#project-type .type-card").forEach(b => b.classList.toggle("active", b.dataset.type === "worn"));
+    el("project-framing").value = "source";
     App.state.sourceCanvas = null;
     App.state.genCanvas = null;
     App.state.masterCanvas = null;
@@ -155,7 +162,7 @@ const App = { state: {}, refreshLogoList: null };
     const bar = el("view-switcher");
     const entries = (App.state.views || [])
       .map((v, i) => ({ v, i }))
-      .filter(e => e.v.role !== "ref");
+      .filter(e => isVue(e.v));
     const show = entries.length > 1 && curStep >= 2;
     bar.classList.toggle("hidden", !show);
     if (!show) return;
@@ -194,7 +201,7 @@ const App = { state: {}, refreshLogoList: null };
       URL.revokeObjectURL(img.src);
       App.state.viewSeq++;
       const defaults = ["face", "dos", "profil"];
-      const nVues = App.state.views.filter(x => x.role !== "ref").length;
+      const nVues = App.state.views.filter(isVue).length;
       const fromFile = file.name.replace(/\.[^.]+$/, "").trim();
       const v = {
         id: App.state.viewSeq,
@@ -204,7 +211,7 @@ const App = { state: {}, refreshLogoList: null };
         logos: [], logoSeq: 0, exported: false,
       };
       App.state.views.push(v);
-      if (App.state.views.filter(x => x.role !== "ref").length === 1) {
+      if (App.state.views.filter(isVue).length === 1) {
         selectView(App.state.views.indexOf(v), { force: true });
       }
       renderViewsList();
@@ -240,22 +247,24 @@ const App = { state: {}, refreshLogoList: null };
         renderViewSwitcher();
         Persist.saveSoon();
       });
-      const isRef = v.role === "ref";
-      const firstVueIdx = App.state.views.findIndex(x => x.role !== "ref");
+      const isRef = !isVue(v);
+      const firstVueIdx = App.state.views.findIndex(isVue);
       const dims = document.createElement("small");
       dims.className = "muted";
       dims.textContent = `${v.source.width} × ${v.source.height} px` +
         (!isRef && i === firstVueIdx ? " — référence identité" : "") +
+        (v.role === "pant" ? " — sera porté par le mannequin" : "") +
         (v.gen ? " — générée" : "");
       const roleSel = document.createElement("select");
       roleSel.innerHTML =
         '<option value="vue">Vue à générer</option>' +
-        '<option value="ref">Photo produit (référence seule)</option>';
+        '<option value="ref">Photo produit (référence seule)</option>' +
+        '<option value="pant">Pantalon à ajouter au mannequin</option>';
       roleSel.value = v.role || "vue";
       roleSel.addEventListener("change", () => {
         v.role = roleSel.value;
-        if (v.role === "ref" && currentView() === v) {
-          const j = App.state.views.findIndex(x => x.role !== "ref");
+        if (!isVue(v) && currentView() === v) {
+          const j = App.state.views.findIndex(isVue);
           if (j >= 0) selectView(j, { force: true });
         }
         renderViewsList();
@@ -263,15 +272,7 @@ const App = { state: {}, refreshLogoList: null };
         updateGenerateButton();
         Persist.saveSoon();
       });
-      const flatLabel = document.createElement("label");
-      flatLabel.className = "inline flat";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = !!v.flat;
-      cb.addEventListener("change", () => { v.flat = cb.checked; Persist.saveSoon(); });
-      flatLabel.append(cb, document.createTextNode(" produit à plat (non porté)"));
       box.append(nameInput, dims, roleSel);
-      if (!isRef) box.append(flatLabel);
       const bDel = document.createElement("button");
       bDel.className = "btn ghost";
       bDel.textContent = "✕";
@@ -291,7 +292,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function updateGenerateButton() {
-    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    const vues = (App.state.views || []).filter(isVue);
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
     btn.disabled = todo === 0;
@@ -303,6 +304,18 @@ const App = { state: {}, refreshLogoList: null };
         : !hasIdentity && todo > 1
           ? `Générer la 1re vue — valider le mannequin, puis les ${todo - 1} autre(s)`
           : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.04).toFixed(2).replace(".", ",")} €)`;
+  }
+
+  function wireProject() {
+    $$("#project-type .type-card").forEach(b => b.addEventListener("click", () => {
+      App.state.projectType = b.dataset.type;
+      $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
+      Persist.saveSoon();
+    }));
+    el("project-framing").addEventListener("change", () => {
+      App.state.framing = el("project-framing").value;
+      Persist.saveSoon();
+    });
   }
 
   function wireSource() {
@@ -335,19 +348,26 @@ const App = { state: {}, refreshLogoList: null };
     return m ? +m[1] < 18 : false;
   }
 
-  function buildPrompt(view, withRef, extraPhotos, extraNote) {
+  function buildPrompt(view, meta, extraNote) {
     const desc = modelDescription() || "mannequin adulte au look neutre";
     const pose = el("m-pose").value.trim() || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
     const notes = el("m-notes").value.trim();
+    // L'interface est la source de vérité (évite tout état obsolète).
+    const type = document.querySelector("#project-type .type-card.active")?.dataset.type
+      || App.state.projectType || "worn";
+    const framing = el("project-framing").value || App.state.framing || "source";
+    const withRef = meta.some(m => m.kind === "identity");
+    const pantCount = meta.filter(m => m.kind === "pant").length;
+    const productCount = meta.filter(m => m.kind === "product").length;
 
-    const refPhrase = "La seconde image est la vue de référence déjà générée du mannequin : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle).";
+    const refPhrase = "L'image « mannequin de référence » montre le mannequin déjà validé : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle).";
     const lines = [];
-    if (view.flat) {
-      // Photo à plat : on habille un mannequin, il n'y a pas de mannequin à remplacer.
-      lines.push(withRef
-        ? "Photo e-commerce studio. La première image montre le produit à plat, non porté. " + refPhrase
-        : "Photo e-commerce studio. Cette photo montre le produit à plat, non porté.");
+    if (type === "flat" || type === "ghost") {
+      const intro = type === "ghost"
+        ? "Cette photo est un packshot « ghost » (mannequin invisible) : le vêtement est présenté en volume mais porté par personne."
+        : "Cette photo montre le produit à plat, non porté.";
+      lines.push("Photo e-commerce studio. " + intro + (withRef ? " " + refPhrase : ""));
       lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.name} ». Génère le mannequin sous cet angle (face = de face, dos = de dos, profil = de profil), en te basant sur la face correspondante du produit.`);
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
@@ -366,22 +386,33 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.");
       lines.push("Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.");
     }
+
     // Rôles explicites et numérotés de chaque image fournie.
-    const roles = ["Image 1 : la photo produit source à transformer" + (view.flat ? " (produit à plat)" : "")];
-    if (withRef) {
-      roles.push("Image 2 : le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. Aucun changement de personne entre les vues.");
+    const roleTxt = {
+      main: "la photo produit source à transformer" + (type === "flat" ? " (produit à plat)" : type === "ghost" ? " (packshot ghost)" : ""),
+      identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. Aucun changement de personne entre les vues.",
+      pant: "le PANTALON que le mannequin doit porter — reproduis-le à l'identique (couleur, coupe, matière, coutures, détails), correctement ajusté au bas du corps.",
+      product: "autre face du MÊME produit (référence vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas la recopier telle quelle.",
+    };
+    lines.push("Rôles des images fournies :\n- " +
+      meta.map((m, i) => `Image ${i + 1}${m.name ? ` (« ${m.name} »)` : ""} : ${roleTxt[m.kind]}`).join("\n- "));
+
+    if (pantCount > 0) {
+      lines.push("PANTALON : même si la photo source est coupée à la taille ou ne montre pas le bas du corps, le mannequin doit porter le pantalon fourni en référence, reproduit exactement. Ne pas inventer un autre bas.");
     }
-    if (extraPhotos > 0) {
-      const first = withRef ? 3 : 2;
-      const last = first + extraPhotos - 1;
-      roles.push(`Image${extraPhotos > 1 ? "s" : ""} ${first}${extraPhotos > 1 ? " à " + last : ""} : autres faces du MÊME produit (références vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas les recopier telles quelles.`);
-    }
-    lines.push("Rôles des images fournies :\n- " + roles.join("\n- "));
+
     lines.push(
-      "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement. Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
+      "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
-      "Conserve le cadrage et le format de la première image.",
     );
+    if (framing === "full") {
+      lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Conserve le format (ratio) de la première image.");
+    } else if (framing === "mid") {
+      lines.push("CADRAGE : plan américain e-commerce — cadré de la tête à mi-cuisse, le pantalon bien visible. Conserve le format (ratio) de la première image.");
+    } else {
+      lines.push("Conserve le cadrage et le format de la première image." +
+        (pantCount > 0 ? " Si la source est coupée à la taille, élargis légèrement vers le bas pour montrer le haut du pantalon." : ""));
+    }
     if (isMinor()) {
       lines.push("Contexte : photo catalogue e-commerce de textile enfant/adolescent. Le mannequin mineur est entièrement habillé, dans une pose catalogue naturelle et sportive, avec une expression neutre adaptée à son âge. Aucune sexualisation, aucune pose suggestive, aucune mise en scène adulte. Cadrage commercial centré sur le produit.");
     }
@@ -416,15 +447,17 @@ const App = { state: {}, refreshLogoList: null };
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Session expirée, reconnecte-toi.");
     const ref = identityRef(view);
+    // Ordre des images : source, [identité], pantalons, autres photos produit.
+    // Les pantalons passent avant les autres références (plafond de 5 images).
+    const meta = [{ kind: "main" }];
     const images = [canvasToB64(view.source, 1536)];
-    if (ref) images.push(canvasToB64(ref, 1024));
-    // Toutes les autres photos du produit servent de référence vêtement :
-    // le devant à plat renseigne la vue face, le dos à plat renseigne la vue dos, etc.
-    let extraPhotos = 0;
-    for (const v of App.state.views) {
-      if (v === view || images.length >= 5) continue;
+    if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
+    const others = App.state.views.filter(v => v !== view)
+      .sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
+    for (const v of others) {
+      if (images.length >= 5) break;
       images.push(canvasToB64(v.source, 1024));
-      extraPhotos++;
+      meta.push({ kind: v.role === "pant" ? "pant" : "product", name: v.name });
     }
     const resp = await fetch(GENERATE_FN_URL, {
       method: "POST",
@@ -433,7 +466,7 @@ const App = { state: {}, refreshLogoList: null };
         "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt: buildPrompt(view, !!ref, extraPhotos, extraNote), images }),
+      body: JSON.stringify({ prompt: buildPrompt(view, meta, extraNote), images }),
     });
     const out = await resp.json();
     if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
@@ -456,7 +489,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   async function generateAll() {
-    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    const vues = (App.state.views || []).filter(isVue);
     if (!vues.length) return;
     const hasIdentity = vues.some(v => v.gen);
     // Sans mannequin validé : générer UNIQUEMENT la première vue, la faire valider,
@@ -500,7 +533,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function updateStep2Buttons() {
-    const vues = (App.state.views || []).filter(v => v.role !== "ref");
+    const vues = (App.state.views || []).filter(isVue);
     const remaining = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate-rest");
     btn.classList.toggle("hidden", remaining === 0 || !vues.some(v => v.gen));
@@ -520,8 +553,8 @@ const App = { state: {}, refreshLogoList: null };
       await Persist.save();
       renderCompare();
       renderViewSwitcher();
-      const firstVue = App.state.views.findIndex(x => x.role !== "ref");
-      if (App.state.cur === firstVue && App.state.views.some((x, i) => i !== firstVue && x.role !== "ref" && x.gen)) {
+      const firstVue = App.state.views.findIndex(isVue);
+      if (App.state.cur === firstVue && App.state.views.some((x, i) => i !== firstVue && isVue(x) && x.gen)) {
         el("gen-msg").textContent = "Vue de référence régénérée — les autres vues déjà générées gardent l'ancienne identité ; régénère-les si besoin.";
       }
     } catch (e) {
@@ -975,7 +1008,7 @@ const App = { state: {}, refreshLogoList: null };
 
   async function exportAll() {
     syncAliases();
-    const ready = App.state.views.filter(v => v.role !== "ref" && v.gen);
+    const ready = App.state.views.filter(v => isVue(v) && v.gen);
     if (!ready.length) return;
     showBusy("Export de toutes les vues…");
     try {
@@ -1060,8 +1093,8 @@ const App = { state: {}, refreshLogoList: null };
         await Persist.restore(saved);
         el("restore-banner").classList.add("hidden");
         let idx = saved.cur >= 0 ? saved.cur : 0;
-        if (!App.state.views[idx] || App.state.views[idx].role === "ref") {
-          idx = Math.max(0, App.state.views.findIndex(x => x.role !== "ref"));
+        if (!App.state.views[idx] || !isVue(App.state.views[idx])) {
+          idx = Math.max(0, App.state.views.findIndex(isVue));
         }
         selectView(idx, { force: true });
         renderLogoLibrary();
@@ -1082,6 +1115,7 @@ const App = { state: {}, refreshLogoList: null };
   document.addEventListener("DOMContentLoaded", () => {
     resetProject(false);
     wireAuth();
+    wireProject();
     wireSource();
     wireInventory();
     wireCleanZone();
