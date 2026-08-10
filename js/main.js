@@ -141,7 +141,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
-    if (window.Avatar3D && Avatar3D.setStage) Avatar3D.setStage(n === 1 ? "big" : "off");
+    if (window.Photographe && Photographe.setStage) Photographe.setStage(n === 1 ? "big" : "off");
     if (n === 1) syncQuestionnaire();
     else assistantSay(STEP_MESSAGES[n]);
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
@@ -369,7 +369,7 @@ const App = { state: {}, refreshLogoList: null };
     const msg = el("assistant-msg");
     if (!msg || msg.dataset.last === text) return;
     msg.dataset.last = text;
-    if (window.Avatar3D && Avatar3D.ready) Avatar3D.say(text);
+    if (window.Photographe && Photographe.ready) Photographe.say(text);
     else if (window.Avatar) Avatar.say(text);
     else msg.textContent = text;
   }
@@ -424,8 +424,8 @@ const App = { state: {}, refreshLogoList: null };
   function wireQuestionnaire() {
     $$(".qnav [data-back]").forEach(b =>
       b.addEventListener("click", () => goQ(+b.dataset.back)));
-    el("qs2-next").addEventListener("click", () => goQ(3));
-    el("qs3-next").addEventListener("click", () => goQ(4));
+    el("qs2-next").addEventListener("click", () => { if (window.Photographe) Photographe.react("positive"); goQ(3); });
+    el("qs3-next").addEventListener("click", () => { if (window.Photographe) Photographe.react("positive"); goQ(4); });
   }
 
   function wirePresets() {
@@ -453,6 +453,7 @@ const App = { state: {}, refreshLogoList: null };
       $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
       updateGenerateButton();
       Persist.saveSoon();
+      if (window.Photographe && Photographe.react) Photographe.react("positive");
       // Esprit questionnaire : choisir une carte fait avancer (délai = feedback tactile)
       if (curQ === 1) setTimeout(() => goQ(2), 220);
     }));
@@ -1309,10 +1310,10 @@ const App = { state: {}, refreshLogoList: null };
   function wireNav() {
     el("btn-generate").addEventListener("click", generateAll);
     el("btn-voice").addEventListener("click", () => {
-      const muted = window.Avatar3D ? Avatar3D.toggleMute() : true;
+      const muted = window.Photographe ? Photographe.toggleMute() : true;
       el("btn-voice").textContent = muted ? "🔇" : "🔊";
     });
-    if (window.Avatar3D && Avatar3D.muted) el("btn-voice").textContent = "🔇";
+    if (window.Photographe && Photographe.muted) el("btn-voice").textContent = "🔇";
     el("btn-generate-rest").addEventListener("click", generateAll);
     el("btn-clean-zone").addEventListener("click", cleanZone);
     el("btn-color-fix").addEventListener("click", () => ColorFix.open(() => {
