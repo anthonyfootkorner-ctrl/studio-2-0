@@ -128,22 +128,69 @@ const ColorFix = (() => {
     const delta = [target[0] - current[0], target[1] - current[1], target[2] - current[2]];
     const sigma = +el("color-tolerance").value;
 
-    const id = ctx.getImageData(0, 0, gen.width, gen.height);
-    backup = new ImageData(new Uint8ClampedArray(id.data), gen.width, gen.height);
+    const W = gen.width, H = gen.height;
+    const id = ctx.getImageData(0, 0, W, H);
+    backup = new ImageData(new Uint8ClampedArray(id.data), W, H);
     const d = id.data;
-    for (let i = 0; i < d.length; i += 4) {
+
+    // La teinte (a,b) pèse plus que la luminosité (L) : les ombres et plis du
+    // même tissu restent couverts, mais la peau (teinte différente) est épargnée.
+    const distAt = p => {
+      const i = p * 4;
       const lab = rgb2lab(d[i], d[i + 1], d[i + 2]);
-      // La teinte (a,b) pèse plus que la luminosité (L) : les ombres et plis du
-      // même tissu restent couverts, mais la peau (teinte différente) est épargnée.
-      const dist = Math.hypot(
-        0.4 * (lab[0] - current[0]),
-        lab[1] - current[1],
-        lab[2] - current[2]
-      );
-      if (dist > sigma * 1.8) continue; // hors tolérance : pixel intact
+      return Math.hypot(0.4 * (lab[0] - current[0]), lab[1] - current[1], lab[2] - current[2]);
+    };
+    const cutoff = sigma * 1.8;
+
+    // Limitation à la zone contiguë : la correction se propage de proche en proche
+    // depuis le cadre tracé et s'arrête aux frontières du panneau — le fond ou une
+    // autre pièce de la même couleur ailleurs dans l'image ne sont pas touchés.
+    let allow = null;
+    if (el("color-contiguous").checked) {
+      const labAt = p => {
+        const i = p * 4;
+        return rgb2lab(d[i], d[i + 1], d[i + 2]);
+      };
+      // Marche de couleur entre deux pixels voisins : au-delà de ce seuil, c'est une
+      // frontière (bord du vêtement, contour, ombre marquée) — on ne la franchit pas.
+      const EDGE = 4;
+      const step = (p, n) => {
+        const a = labAt(p), b = labAt(n);
+        return Math.hypot(0.4 * (a[0] - b[0]), a[1] - b[1], a[2] - b[2]);
+      };
+      allow = new Uint8Array(W * H);
+      const queue = new Int32Array(W * H);
+      let head = 0, tail = 0;
+      const x1 = Math.min(W - 1, dstRect.x + dstRect.w), y1 = Math.min(H - 1, dstRect.y + dstRect.h);
+      for (let y = Math.max(0, dstRect.y); y <= y1; y++) {
+        for (let x = Math.max(0, dstRect.x); x <= x1; x++) {
+          const p = y * W + x;
+          if (!allow[p] && distAt(p) <= cutoff) { allow[p] = 1; queue[tail++] = p; }
+        }
+      }
+      const tryGrow = (p, n) => {
+        if (!allow[n] && distAt(n) <= cutoff && step(p, n) <= EDGE) {
+          allow[n] = 1; queue[tail++] = n;
+        }
+      };
+      while (head < tail) {
+        const p = queue[head++];
+        const x = p % W, y = (p / W) | 0;
+        if (x > 0) tryGrow(p, p - 1);
+        if (x < W - 1) tryGrow(p, p + 1);
+        if (y > 0) tryGrow(p, p - W);
+        if (y < H - 1) tryGrow(p, p + W);
+      }
+    }
+
+    for (let p = 0; p < W * H; p++) {
+      if (allow && !allow[p]) continue;
+      const i = p * 4;
+      const lab = rgb2lab(d[i], d[i + 1], d[i + 2]);
+      const dist = Math.hypot(0.4 * (lab[0] - current[0]), lab[1] - current[1], lab[2] - current[2]);
+      if (dist > cutoff) continue; // hors tolérance : pixel intact
       // Chute quartique : pleine correction dans la tolérance, coupure rapide au-delà.
-      const q = Math.pow(dist / sigma, 4);
-      const w = Math.exp(-q);
+      const w = Math.exp(-Math.pow(dist / sigma, 4));
       const rgb = lab2rgb(lab[0] + w * delta[0], lab[1] + w * delta[1], lab[2] + w * delta[2]);
       d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
     }
