@@ -3,7 +3,7 @@
 
 const AdminPanel = (() => {
   const el = id => document.getElementById(id);
-  const COUT_PAR_GENERATION = 0.06; // € — base volontairement large (réel ≈ 0,034 €)
+  const COUT_PAR_GENERATION = 0.10; // € — base volontairement large (réel ≈ 0,09 € en 2K)
 
   const euros = n => (n * COUT_PAR_GENERATION).toFixed(2).replace(".", ",") + " €";
   const dateFr = iso => (iso ? new Date(iso).toLocaleDateString("fr-FR") : "—");
