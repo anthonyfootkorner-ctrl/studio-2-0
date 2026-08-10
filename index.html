@@ -76,8 +76,9 @@
         </label>
         <h2>Photos produit (toutes les vues)</h2>
         <div id="drop-source" class="dropzone">
-          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp" multiple hidden>
+          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
           <p>Glisser une ou plusieurs photos (face, dos, profil…) ou <button class="linklike" id="btn-browse">parcourir</button></p>
+          <p class="hint">JPG, PNG, WebP et HEIC (photos iPhone, converties automatiquement sur place).</p>
         </div>
         <ul id="views-list" class="views-list"></ul>
         <p class="hint">Chaque génération utilise <strong>toutes les photos chargées</strong> comme références du vêtement (le dos à plat renseigne la vue dos, etc.), et la première vue générée sert de référence d'identité pour les suivantes. Nomme les vues (face, dos…) : le nom indique à l'IA l'angle à produire et sert au fichier d'export.</p>
@@ -153,7 +154,7 @@
           <ul id="logo-library" class="logo-list"></ul>
         </div>
         <button id="btn-add-detail" class="btn big">＋ Logo depuis une photo détail</button>
-        <input type="file" id="file-detail" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <input type="file" id="file-detail" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
         <p class="hint">Tu peux aussi importer une photo rapprochée du logo (à plat, packshot…) : elle sera détourée avec les mêmes pinceaux puis posée sur le mannequin.</p>
         <button id="btn-goto-placement" class="btn primary big" disabled>Tous les logos détourés → Placement</button>
       </div>
@@ -297,6 +298,7 @@
 </section>
 
 <script src="vendor/supabase.min.js"></script>
+<script src="vendor/heic2any.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/masking.js"></script>
 <script src="js/persist.js"></script>

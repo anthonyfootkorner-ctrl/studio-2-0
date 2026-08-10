@@ -318,18 +318,44 @@ const App = { state: {}, refreshLogoList: null };
     });
   }
 
+  // ══════════ Conversion HEIC (photos iPhone) ══════════
+  // Entièrement locale : vendor/heic2any (libheif embarqué, aucun appel réseau).
+
+  const isHeic = f => /image\/hei[cf]/.test(f.type) || /\.hei[cf]$/i.test(f.name);
+
+  async function toCompatible(file) {
+    if (!isHeic(file)) return file;
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.95 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    return new File([blob], file.name.replace(/\.hei[cf]$/i, ".jpg"), { type: "image/jpeg" });
+  }
+
+  async function intake(fileList, handler) {
+    const files = Array.from(fileList);
+    const nHeic = files.filter(isHeic).length;
+    if (nHeic) showBusy(`Conversion de ${nHeic} photo(s) HEIC… (quelques secondes)`);
+    try {
+      for (const f of files) handler(await toCompatible(f), files.length === 1);
+    } catch (e) {
+      console.error("Conversion HEIC impossible :", e);
+      alert("Conversion HEIC impossible pour un fichier : " + (e.message || e));
+    } finally {
+      if (nHeic) hideBusy();
+    }
+  }
+
   function wireSource() {
     const dz = el("drop-source");
     el("btn-browse").addEventListener("click", ev => { ev.preventDefault(); el("file-source").click(); });
     el("file-source").addEventListener("change", ev => {
-      Array.from(ev.target.files).forEach(addViewFile);
+      intake(ev.target.files, addViewFile);
       ev.target.value = "";
     });
     dz.addEventListener("dragover", ev => { ev.preventDefault(); dz.classList.add("over"); });
     dz.addEventListener("dragleave", () => dz.classList.remove("over"));
     dz.addEventListener("drop", ev => {
       ev.preventDefault(); dz.classList.remove("over");
-      Array.from(ev.dataTransfer.files).forEach(addViewFile);
+      intake(ev.dataTransfer.files, addViewFile);
     });
   }
 
@@ -775,8 +801,7 @@ const App = { state: {}, refreshLogoList: null };
     el("btn-zoom-out").addEventListener("click", () => { invZoom = Math.max(0.1, invZoom / 1.25); renderInventory(); });
     el("btn-add-detail").addEventListener("click", () => el("file-detail").click());
     el("file-detail").addEventListener("change", ev => {
-      const files = Array.from(ev.target.files);
-      files.forEach((f, i) => addLibraryFile(f, i === 0 && files.length === 1));
+      intake(ev.target.files, (f, seul) => addLibraryFile(f, seul));
       ev.target.value = "";
     });
   }
