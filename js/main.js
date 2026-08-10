@@ -194,10 +194,16 @@ const App = { state: {}, refreshLogoList: null };
     if (/logo/i.test(file.name)) { addLibraryFile(file, false); return; }
     const img = new Image();
     img.onload = () => {
+      // Les photos iPhone (jusqu'à 48 Mpx) sont plafonnées : au-delà, tout devient
+      // lourd (sauvegardes, composites) sans gain pour l'e-commerce.
+      const MAX_DIM = 2048; // aligné sur la sortie 2K du modèle
+      const sc = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas");
-      c.width = img.naturalWidth;
-      c.height = img.naturalHeight;
-      c.getContext("2d").drawImage(img, 0, 0);
+      c.width = Math.round(img.naturalWidth * sc);
+      c.height = Math.round(img.naturalHeight * sc);
+      const cctx = c.getContext("2d");
+      cctx.imageSmoothingQuality = "high";
+      cctx.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(img.src);
       App.state.viewSeq++;
       const defaults = ["face", "dos", "profil"];
@@ -303,7 +309,7 @@ const App = { state: {}, refreshLogoList: null };
         ? "Toutes les vues sont générées"
         : !hasIdentity && todo > 1
           ? `Générer la 1re vue — valider le mannequin, puis les ${todo - 1} autre(s)`
-          : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.04).toFixed(2).replace(".", ",")} €)`;
+          : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.09).toFixed(2).replace(".", ",")} €)`;
   }
 
   function wireProject() {
@@ -461,6 +467,8 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("PANTALON : même si la photo source est coupée à la taille ou ne montre pas le bas du corps, le mannequin doit porter le pantalon fourni en référence, reproduit exactement. Ne pas inventer un autre bas.");
     }
 
+    lines.push(
+      "FIDÉLITÉ ABSOLUE AU PRODUIT : reproduis les couleurs EXACTES du vêtement (teinte, saturation, luminosité) telles qu'elles apparaissent sur les photos — sans embellir, sans réchauffer ni adoucir, sans modifier la balance des blancs. Reproduis aussi TOUS les éléments graphiques : bandes, traits, lignes contrastées, empiècements, panneaux de couleur, surpiqûres — n'en supprime, déplace ni simplifie AUCUN, même petit ou discret.");
     lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte.",
@@ -1105,6 +1113,11 @@ const App = { state: {}, refreshLogoList: null };
     el("btn-generate").addEventListener("click", generateAll);
     el("btn-generate-rest").addEventListener("click", generateAll);
     el("btn-clean-zone").addEventListener("click", cleanZone);
+    el("btn-color-fix").addEventListener("click", () => ColorFix.open(() => {
+      syncAliases();
+      renderCompare();
+      Persist.saveSoon();
+    }));
     el("btn-regenerate").addEventListener("click", regenerateCurrent);
     el("onion-opacity").addEventListener("input", renderCompare);
     el("btn-accept-gen").addEventListener("click", () => goStep(3));

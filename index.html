@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081001">
+<link rel="stylesheet" href="styles.css?v=2026081003">
 </head>
 <body>
 
@@ -123,6 +123,7 @@
       <input id="regen-notes" placeholder="Correction pour régénérer (ex. : le buste a pivoté, redresse-le)">
       <button id="btn-regenerate" class="btn">Régénérer</button>
       <button id="btn-clean-zone" class="btn" disabled>Nettoyer la zone encadrée</button>
+      <button id="btn-color-fix" class="btn">Corriger les couleurs</button>
       <button id="btn-generate-rest" class="btn primary hidden">Générer les vues restantes</button>
       <button id="btn-accept-gen" class="btn primary">Génération validée → Logos</button>
     </div>
@@ -257,11 +258,32 @@
     </div>
   </div>
 
+  <!-- Correction de couleur ciblée -->
+  <div id="color-modal" class="modal hidden">
+    <div class="modal-box">
+      <h3>Correction de couleur ciblée</h3>
+      <p class="hint">1. Trace un petit cadre sur la photo <strong>source</strong>, sur la couleur correcte (ex. : le panneau orange). 2. Trace un cadre sur la <strong>même zone</strong> de l'image générée. 3. Applique : seuls les pixels de cette couleur sont corrigés — la peau, le fond et les autres couleurs ne bougent pas. Gratuit et répétable couleur par couleur.</p>
+      <div class="place-wrap">
+        <div><p class="hint">Source — couleur de référence <span id="color-src-state"></span></p><canvas id="canvas-color-src"></canvas></div>
+        <div><p class="hint">Générée — zone à corriger <span id="color-dst-state"></span></p><canvas id="canvas-color-dst"></canvas></div>
+      </div>
+      <div class="toolrow">
+        <label>Tolérance <input type="range" id="color-tolerance" min="5" max="40" value="14"></label>
+        <span id="color-info" class="hint"></span>
+      </div>
+      <div class="row right">
+        <button id="btn-color-undo" class="btn ghost" disabled>Annuler la dernière correction</button>
+        <button id="btn-color-close" class="btn ghost">Fermer</button>
+        <button id="btn-color-apply" class="btn primary" disabled>Appliquer la correction</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Panneau admin : utilisateurs et coûts -->
   <div id="admin-panel" class="modal hidden">
     <div class="modal-box">
       <h3>Utilisateurs et suivi des coûts</h3>
-      <p class="hint">Coût estimé sur une base large de <strong>0,06 € par image générée</strong> (tarif réel : ~0,034 €). Seules les générations comptent — détourage, placement et export sont gratuits.</p>
+      <p class="hint">Coût estimé sur une base large de <strong>0,06 € par image générée</strong> (tarif réel : ~0,09 € en qualité 2K). Seules les générations comptent — détourage, placement et export sont gratuits.</p>
       <p id="admin-msg" class="msg"></p>
       <div class="table-wrap">
         <table id="admin-table" class="admin-table">
@@ -297,13 +319,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081001"></script>
-<script src="vendor/libheif-bundle.js?v=2026081001"></script>
-<script src="js/config.js?v=2026081001"></script>
-<script src="js/masking.js?v=2026081001"></script>
-<script src="js/persist.js?v=2026081001"></script>
-<script src="js/admin.js?v=2026081001"></script>
-<script src="js/placement.js?v=2026081001"></script>
-<script src="js/main.js?v=2026081001"></script>
+<script src="vendor/supabase.min.js?v=2026081003"></script>
+<script src="vendor/libheif-bundle.js?v=2026081003"></script>
+<script src="js/config.js?v=2026081003"></script>
+<script src="js/masking.js?v=2026081003"></script>
+<script src="js/persist.js?v=2026081003"></script>
+<script src="js/admin.js?v=2026081003"></script>
+<script src="js/placement.js?v=2026081003"></script>
+<script src="js/colorfix.js?v=2026081003"></script>
+<script src="js/main.js?v=2026081003"></script>
 </body>
 </html>
