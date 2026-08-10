@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081016">
+<link rel="stylesheet" href="styles.css?v=2026081017">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v16</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v17</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -53,30 +53,7 @@
   <div id="assistant" class="assistant">
     <div class="avatar3d" id="avatar3d" aria-hidden="true">
       <div class="a3-rig" id="a3-rig">
-        <span class="a3 a3-bg"></span>
-        <svg class="a3 a3-shoulders" viewBox="0 0 100 100">
-          <defs><clipPath id="a3c"><circle cx="50" cy="50" r="49"/></clipPath></defs>
-          <g clip-path="url(#a3c)">
-            <path d="M12 94 Q50 60 88 94 L88 100 L12 100 Z" fill="#1b0d06"/>
-          </g>
-        </svg>
-        <svg class="a3 a3-head" viewBox="0 0 100 100">
-          <rect x="43" y="52" width="14" height="12" rx="4" fill="#170b05"/>
-          <ellipse cx="50" cy="38" rx="17" ry="19" fill="#20100a"/>
-          <ellipse cx="32.5" cy="40" rx="3.4" ry="5" fill="#1b0d06"/>
-          <ellipse cx="67.5" cy="40" rx="3.4" ry="5" fill="#1b0d06"/>
-          <rect id="a3-mouth-bar" x="43" y="55" width="14" height="2.6" rx="1.3" fill="#c98d68" opacity="0.85"/>
-        </svg>
-        <svg class="a3 a3-glasses" viewBox="0 0 100 100">
-          <g>
-            <rect x="29" y="30" width="18" height="10.5" rx="5" fill="#0d0603"/>
-            <rect x="53" y="30" width="18" height="10.5" rx="5" fill="#0d0603"/>
-            <rect x="45" y="33.5" width="10" height="2.6" rx="1.3" fill="#0d0603"/>
-            <rect x="30" y="31" width="16" height="8.5" rx="4.2" fill="#3a2413"/>
-            <rect x="54" y="31" width="16" height="8.5" rx="4.2" fill="#3a2413"/>
-            <rect class="a3-glint" x="28" y="28" width="7" height="15" rx="3" fill="#f6efe8" opacity="0"/>
-          </g>
-        </svg>
+        <canvas id="a3-canvas" width="220" height="220"></canvas>
       </div>
     </div>
     <div class="assistant-body">
@@ -396,15 +373,15 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081016"></script>
-<script src="vendor/libheif-bundle.js?v=2026081016"></script>
-<script src="js/config.js?v=2026081016"></script>
-<script src="js/masking.js?v=2026081016"></script>
-<script src="js/persist.js?v=2026081016"></script>
-<script src="js/avatar.js?v=2026081016"></script>
-<script src="js/admin.js?v=2026081016"></script>
-<script src="js/placement.js?v=2026081016"></script>
-<script src="js/colorfix.js?v=2026081016"></script>
-<script src="js/main.js?v=2026081016"></script>
+<script src="vendor/supabase.min.js?v=2026081017"></script>
+<script src="vendor/libheif-bundle.js?v=2026081017"></script>
+<script src="js/config.js?v=2026081017"></script>
+<script src="js/masking.js?v=2026081017"></script>
+<script src="js/persist.js?v=2026081017"></script>
+<script src="js/avatar.js?v=2026081017"></script>
+<script src="js/admin.js?v=2026081017"></script>
+<script src="js/placement.js?v=2026081017"></script>
+<script src="js/colorfix.js?v=2026081017"></script>
+<script src="js/main.js?v=2026081017"></script>
 </body>
 </html>

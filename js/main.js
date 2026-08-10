@@ -743,6 +743,10 @@ const App = { state: {}, refreshLogoList: null };
     view.gen = gen;
     view.exported = false;
     if (view === currentView()) App.state.genCanvas = gen;
+    // Le visage du mannequin généré devient le portrait scanné de l'assistant.
+    if (window.Avatar && Avatar.adopt && isVue(view) && (view.angle || "face") === "face") {
+      try { Avatar.adopt(gen); } catch {}
+    }
   }
 
   async function generateAll() {

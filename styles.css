@@ -851,3 +851,16 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
   .btn-round:hover { transform: none; }
   .type-card:hover, .views-list li:hover, .logo-list li:hover { transform: none; }
 }
+
+
+/* ── Avatar « scan » : canvas particules ───────────────────── */
+
+.avatar3d { width: 110px; height: 110px; }
+#a3-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  background: radial-gradient(circle at 40% 28%, #1c0f08, #0a0604 75%);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), inset 0 -8px 18px rgba(0, 0, 0, 0.35);
+}
