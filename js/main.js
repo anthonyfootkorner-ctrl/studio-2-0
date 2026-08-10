@@ -988,7 +988,7 @@ const App = { state: {}, refreshLogoList: null };
       ctx.fillText(logo.name, logo.rect.x * invZoom + 4, logo.rect.y * invZoom - 4);
     }
     if (invDrag && invDrag.cur) {
-      ctx.strokeStyle = "#ea580c";
+      ctx.strokeStyle = "#C65E29";
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(invDrag.x0 * invZoom, invDrag.y0 * invZoom,
         (invDrag.cur.x - invDrag.x0) * invZoom, (invDrag.cur.y - invDrag.y0) * invZoom);
@@ -1377,7 +1377,16 @@ const App = { state: {}, refreshLogoList: null };
     el("btn-restore-dismiss").onclick = () => el("restore-banner").classList.add("hidden");
   }
 
+  function tickClock() {
+    const d = new Date();
+    const t = el("cap-time"), dt = el("cap-date");
+    if (t) t.textContent = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (dt) dt.textContent = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    tickClock();
+    setInterval(tickClock, 30000);
     resetProject(false);
     wireAuth();
     wireProject();

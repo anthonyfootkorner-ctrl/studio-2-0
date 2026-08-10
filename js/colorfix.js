@@ -55,7 +55,7 @@ const ColorFix = (() => {
       ctx.drawImage(base, 0, 0, c.width, c.height);
       const r = (drag && drag.canvasId === canvasId && drag.cur) ? drag.toRect() : rect;
       if (r) {
-        ctx.strokeStyle = "#ea580c";
+        ctx.strokeStyle = "#C65E29";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 4]);
         ctx.strokeRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);

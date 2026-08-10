@@ -81,7 +81,7 @@ const Placement = (() => {
     for (const logo of logos) {
       // Cadre du logo dans la source (sauf logo importé d'une photo détail).
       if (!logo.external) {
-        sctx.strokeStyle = logo === selected ? "#ea580c" : "#d0a030";
+        sctx.strokeStyle = logo === selected ? "#C65E29" : "#d0a030";
         sctx.lineWidth = 2;
         sctx.strokeRect(
           logo.rect.x * displayScale, logo.rect.y * displayScale,
@@ -92,7 +92,7 @@ const Placement = (() => {
       const r = placedRect(logo);
       drawPlaced(dctx, logo, displayScale);
       if (logo === selected) {
-        dctx.strokeStyle = "#ea580c";
+        dctx.strokeStyle = "#C65E29";
         dctx.lineWidth = 1.5;
         dctx.strokeRect(r.x * displayScale - 2, r.y * displayScale - 2,
           r.w * displayScale + 4, r.h * displayScale + 4);
