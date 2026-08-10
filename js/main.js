@@ -142,6 +142,7 @@ const App = { state: {}, refreshLogoList: null };
     });
     renderViewSwitcher();
     if (n === 1) syncQuestionnaire();
+    else assistantSay(STEP_MESSAGES[n]);
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
     if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
@@ -348,6 +349,31 @@ const App = { state: {}, refreshLogoList: null };
     ado: { genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
   };
 
+  // ══════════ Assistant ══════════
+
+  const Q_MESSAGES = {
+    1: "Quel type de photo as-tu ?",
+    2: "Quel cadrage veux-tu pour la photo finale ?",
+    3: "Ajoute-moi les photos du produit — toutes les faces m'aident à être fidèle.",
+    4: "Décris-moi le mannequin, ou choisis un profil type.",
+  };
+  const STEP_MESSAGES = {
+    2: "Contrôle bien : mannequin, vêtement, fond. Une trace de logo ? Encadre-la, je nettoie.",
+    3: "Trace un cadre sur chaque marquage de la source — zoome pour les petits logos ton sur ton.",
+    4: "Place chaque logo à sa position exacte. Vérifie à la loupe, elle est à 400 %.",
+    5: "Dernier contrôle et export : je te sors un WebP optimisé de 200 Ko max.",
+  };
+
+  function assistantSay(text) {
+    const msg = el("assistant-msg");
+    if (!msg || msg.textContent === text) return;
+    msg.classList.add("swap");
+    setTimeout(() => {
+      msg.textContent = text;
+      msg.classList.remove("swap");
+    }, 180);
+  }
+
   // ══════════ Questionnaire de l'étape 1 ══════════
 
   let curQ = 1;
@@ -357,6 +383,7 @@ const App = { state: {}, refreshLogoList: null };
     for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
     if (n === 4) renderRecap();
     updateQNav();
+    assistantSay(Q_MESSAGES[n]);
   }
 
   function updateQNav() {
