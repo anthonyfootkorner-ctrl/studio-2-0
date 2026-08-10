@@ -66,6 +66,16 @@ const Placement = (() => {
       ctx.drawImage(base, 0, 0, c.width, c.height);
     }
 
+    // Si la génération n'a pas les dimensions de la source (mode création),
+    // un logo proposé aux coordonnées source peut être hors cadre : on le recentre.
+    for (const logo of logos) {
+      const r0 = placedRect(logo);
+      if (r0.x >= genCanvas.width - 4 || r0.y >= genCanvas.height - 4 ||
+          r0.x + r0.w <= 4 || r0.y + r0.h <= 4) {
+        logo.placement.x = Math.round((genCanvas.width - r0.w) / 2);
+        logo.placement.y = Math.round(genCanvas.height * 0.3);
+      }
+    }
     const sctx = srcC.getContext("2d");
     const dctx = dstC.getContext("2d");
     for (const logo of logos) {

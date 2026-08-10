@@ -458,10 +458,10 @@ const App = { state: {}, refreshLogoList: null };
     const lines = [];
     if (type === "flat" || type === "ghost") {
       const intro = type === "ghost"
-        ? "Cette photo est un packshot « ghost » (mannequin invisible) : le vêtement est présenté en volume mais porté par personne."
-        : "Cette photo montre le produit à plat, non porté.";
-      lines.push("Photo e-commerce studio. " + intro + (withRef ? " " + refPhrase : ""));
-      lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
+        ? "packshots « ghost » (vêtement en volume, porté par personne)"
+        : "photos du produit à plat, non porté";
+      lines.push("MISSION : CRÉE une photo e-commerce studio entièrement NOUVELLE. Les images fournies sont des RÉFÉRENCES PRODUIT uniquement (" + intro + ") : elles ne doivent PAS être retouchées, prolongées ni réutilisées comme fond ou composition. Ne reprends RIEN de leur décor — ni table, ni sol, ni objets, ni pièce, ni le vêtement posé." + (withRef ? " " + refPhrase : ""));
+      lines.push(`Sujet de la nouvelle photo : un mannequin (${desc}) portant EXACTEMENT le vêtement montré sur les références.`);
       lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
@@ -482,7 +482,9 @@ const App = { state: {}, refreshLogoList: null };
 
     // Rôles explicites et numérotés de chaque image fournie.
     const roleTxt = {
-      main: "la photo produit source à transformer" + (type === "flat" ? " (produit à plat)" : type === "ghost" ? " (packshot ghost)" : ""),
+      main: (type === "flat" || type === "ghost")
+        ? "la référence produit principale (la face du vêtement correspondant à la vue à produire). RÉFÉRENCE UNIQUEMENT : ne pas retoucher, ne pas réutiliser son décor ni sa composition."
+        : "la photo produit source à transformer",
       identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. ATTENTION : cette image sert UNIQUEMENT à l'identité de la personne. NE RECOPIE PAS cette image : pas sa pose, pas son angle de vue, pas son cadrage, pas sa composition. Le résultat correspond à l'image 1 et à la VUE À PRODUIRE, jamais à cette image de référence.",
       pant: "le PANTALON que le mannequin doit porter — reproduis-le à l'identique (couleur, coupe, matière, coutures, détails), correctement ajusté au bas du corps.",
       product: "autre face du MÊME produit (référence vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas la recopier telle quelle.",
@@ -500,12 +502,18 @@ const App = { state: {}, refreshLogoList: null };
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
       "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.",
     );
+    const creation = type === "flat" || type === "ghost";
+    const formatPhrase = creation
+      ? "Format de sortie : portrait vertical 3:4, photo studio e-commerce."
+      : "Conserve le format (ratio) de la première image.";
     if (framing === "full") {
-      lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Conserve le format (ratio) de la première image.");
+      lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. " + formatPhrase);
     } else if (framing === "mid") {
-      lines.push("CADRAGE : plan américain e-commerce — cadré de la tête à mi-cuisse, le pantalon bien visible. Conserve le format (ratio) de la première image.");
+      lines.push("CADRAGE : plan américain e-commerce — cadré de la tête à mi-cuisse, le pantalon bien visible. " + formatPhrase);
     } else if (framing === "low") {
-      lines.push("CADRAGE : photo e-commerce de PANTALON — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres sauf consigne contraire). La tête et le visage sont HORS cadre, coupés au niveau du torse, comme une photo produit de bas. Le pantalon est le sujet principal, visible en entier de la ceinture aux chevilles. En haut, le mannequin porte un t-shirt uni neutre (sauf consigne contraire). Conserve le format (ratio) de la première image.");
+      lines.push("CADRAGE : photo e-commerce de PANTALON — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres sauf consigne contraire). La tête et le visage sont HORS cadre, coupés au niveau du torse, comme une photo produit de bas. Le pantalon est le sujet principal, visible en entier de la ceinture aux chevilles. En haut, le mannequin porte un t-shirt uni neutre (sauf consigne contraire). " + formatPhrase);
+    } else if (creation) {
+      lines.push("CADRAGE : de la tête à mi-cuisse environ, cadrage e-commerce standard centré sur le produit. " + formatPhrase);
     } else {
       lines.push("Conserve le cadrage et le format de la première image." +
         (pantCount > 0 ? " Si la source est coupée à la taille, élargis légèrement vers le bas pour montrer le haut du pantalon." : ""));
@@ -531,6 +539,11 @@ const App = { state: {}, refreshLogoList: null };
     }
     const url = c.toDataURL("image/jpeg", 0.93);
     return { mimeType: "image/jpeg", data: url.split(",")[1] };
+  }
+
+  function isCreationProject() {
+    const t = document.querySelector("#project-type .type-card.active")?.dataset.type;
+    return t === "flat" || t === "ghost";
   }
 
   function identityRef(excludeView) {
@@ -563,7 +576,11 @@ const App = { state: {}, refreshLogoList: null };
         "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt: buildPrompt(view, meta, extraNote), images }),
+      body: JSON.stringify({
+        prompt: buildPrompt(view, meta, extraNote),
+        images,
+        aspectRatio: isCreationProject() ? "3:4" : undefined,
+      }),
     });
     const out = await resp.json();
     if (!resp.ok) throw new Error(out.error + (out.detail ? " — " + out.detail : ""));
@@ -573,13 +590,21 @@ const App = { state: {}, refreshLogoList: null };
       img.onload = res; img.onerror = rej;
       img.src = `data:${out.image.mimeType};base64,${out.image.data}`;
     });
-    // Ramener la génération aux dimensions exactes de la source (règle du skill).
+    // Photo portée : la génération reprend les dimensions exactes de la source.
+    // Projet à plat/ghost : c'est une CRÉATION — on garde le format natif (portrait 3:4),
+    // pas celui de la photo de référence posée sur une table.
     const gen = document.createElement("canvas");
-    gen.width = view.source.width;
-    gen.height = view.source.height;
-    const ctx = gen.getContext("2d");
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, 0, 0, gen.width, gen.height);
+    if (isCreationProject()) {
+      gen.width = img.naturalWidth;
+      gen.height = img.naturalHeight;
+      gen.getContext("2d").drawImage(img, 0, 0);
+    } else {
+      gen.width = view.source.width;
+      gen.height = view.source.height;
+      const ctx = gen.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, gen.width, gen.height);
+    }
     view.gen = gen;
     view.exported = false;
     if (view === currentView()) App.state.genCanvas = gen;
