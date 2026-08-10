@@ -357,6 +357,10 @@ const App = { state: {}, refreshLogoList: null };
     const type = document.querySelector("#project-type .type-card.active")?.dataset.type
       || App.state.projectType || "worn";
     const framing = el("project-framing").value || App.state.framing || "source";
+    // Cadrage « bas » : la tête est volontairement hors champ, ne pas l'exiger.
+    const headPhrase = framing === "low"
+      ? ""
+      : " La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.";
     const withRef = meta.some(m => m.kind === "identity");
     const pantCount = meta.filter(m => m.kind === "pant").length;
     const productCount = meta.filter(m => m.kind === "product").length;
@@ -371,7 +375,7 @@ const App = { state: {}, refreshLogoList: null };
       lines.push(`Crée un mannequin portant ce vêtement : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.name} ». Génère le mannequin sous cet angle (face = de face, dos = de dos, profil = de profil), en te basant sur la face correspondante du produit.`);
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
-      lines.push(`Pose : ${pose}. Tête entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus. Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
+      lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
       lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
       lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
     } else {
@@ -379,7 +383,7 @@ const App = { state: {}, refreshLogoList: null };
         ? "Photo e-commerce studio. La première image est la photo produit à modifier (une autre vue du même produit : dos, profil ou autre angle). " + refPhrase + " Le visage peut être peu visible selon l'angle, mais tout doit correspondre au même mannequin."
         : "Photo e-commerce studio. Modifie cette photo produit.");
       lines.push(`Remplace le mannequin par : ${desc}.`);
-      lines.push(`Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source. La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.`);
+      lines.push(`Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source.${headPhrase}`);
       lines.push("Retire tous les accessoires visibles : lunettes, bijoux, montre, casquette, sac, écouteurs, gants et objets tenus."
         + (acc ? ` Consigne spécifique : ${acc}.` : "")
         + " Chaque membre qui touchait un accessoire retiré doit reprendre une pose naturelle et équilibrée.");
@@ -409,6 +413,8 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Conserve le format (ratio) de la première image.");
     } else if (framing === "mid") {
       lines.push("CADRAGE : plan américain e-commerce — cadré de la tête à mi-cuisse, le pantalon bien visible. Conserve le format (ratio) de la première image.");
+    } else if (framing === "low") {
+      lines.push("CADRAGE : photo e-commerce de PANTALON — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres sauf consigne contraire). La tête et le visage sont HORS cadre, coupés au niveau du torse, comme une photo produit de bas. Le pantalon est le sujet principal, visible en entier de la ceinture aux chevilles. En haut, le mannequin porte un t-shirt uni neutre (sauf consigne contraire). Conserve le format (ratio) de la première image.");
     } else {
       lines.push("Conserve le cadrage et le format de la première image." +
         (pantCount > 0 ? " Si la source est coupée à la taille, élargis légèrement vers le bas pour montrer le haut du pantalon." : ""));
