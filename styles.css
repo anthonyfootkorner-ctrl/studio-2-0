@@ -635,3 +635,35 @@ details#model-details summary {
   transition: color 150ms ease;
 }
 details#model-details summary:hover { color: var(--text); }
+
+
+/* ── Questionnaire étape 1 ─────────────────────────────────── */
+
+.qwrap { max-width: 720px; margin: 0 auto; }
+.qstep {
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  transition-behavior: allow-discrete;
+  @starting-style { opacity: 0; transform: translateY(10px); }
+}
+.qcount {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+.qstep h2 { font-size: 1.4rem; margin-bottom: 1rem; }
+.type-cards.vertical { flex-direction: column; }
+.type-cards.vertical .type-card { min-width: 0; padding: 1rem 1.1rem; font-size: 1rem; }
+.qnav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.4rem;
+}
+.qnav .btn.primary { min-width: 160px; }
+#q-recap { margin: 1rem 0 0.2rem; }
+@media (prefers-reduced-motion: reduce) {
+  .qstep { transition-property: opacity; @starting-style { transform: none; } }
+}

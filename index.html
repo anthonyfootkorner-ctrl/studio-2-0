@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081012">
+<link rel="stylesheet" href="styles.css?v=2026081013">
 </head>
 <body>
 
@@ -34,7 +34,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v12</span>
+    <strong>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v13</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -58,14 +58,21 @@
       <button id="btn-restore" class="btn primary">Reprendre</button>
       <button id="btn-restore-dismiss" class="btn ghost">Ignorer</button>
     </div>
-    <div class="cols">
-      <div class="col">
-        <h2><span class="num">1</span> Type de projet</h2>
-        <div id="project-type" class="type-cards">
-          <button class="type-card active" data-type="worn">Photo portée<small>Un mannequin est sur la photo : on le remplace</small></button>
-          <button class="type-card" data-type="flat">Produit à plat<small>Vêtement posé : on crée le mannequin</small></button>
+    <div class="qwrap">
+
+      <div class="qstep" id="qs-1">
+        <p class="qcount">Question 1 sur 4</p>
+        <h2>Quel type de photo as-tu ?</h2>
+        <div id="project-type" class="type-cards vertical">
+          <button class="type-card" data-type="worn">Photo portée<small>Un mannequin est déjà sur la photo : on le remplace</small></button>
+          <button class="type-card" data-type="flat">Produit à plat<small>Vêtement posé ou plié : on crée le mannequin</small></button>
           <button class="type-card" data-type="ghost">Photo ghost<small>Mannequin invisible : on crée le mannequin</small></button>
         </div>
+      </div>
+
+      <div class="qstep hidden" id="qs-2">
+        <p class="qcount">Question 2 sur 4</p>
+        <h2>Quel cadrage pour la photo finale ?</h2>
         <label>Cadrage de sortie
           <select id="project-framing">
             <option value="source">Identique à la photo source</option>
@@ -74,17 +81,31 @@
             <option value="low">Cadré sur le bas (pantalon : torse → pieds, sans tête)</option>
           </select>
         </label>
-        <h2><span class="num">2</span> Photos produit (toutes les vues)</h2>
+        <div class="qnav">
+          <button class="btn ghost" data-back="1">← Retour</button>
+          <button id="qs2-next" class="btn primary">Continuer</button>
+        </div>
+      </div>
+
+      <div class="qstep hidden" id="qs-3">
+        <p class="qcount">Question 3 sur 4</p>
+        <h2>Ajoute les photos du produit</h2>
         <div id="drop-source" class="dropzone">
           <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
           <p>Glisser une ou plusieurs photos (face, dos, profil…) ou <button class="linklike" id="btn-browse">parcourir</button></p>
           <p class="hint">JPG, PNG, WebP et HEIC (photos iPhone, converties automatiquement sur place).</p>
         </div>
         <ul id="views-list" class="views-list"></ul>
-        <p class="hint">Chaque génération utilise <strong>toutes les photos chargées</strong> comme références du vêtement (le dos à plat renseigne la vue dos, etc.), et la première vue générée sert de référence d'identité pour les suivantes. <strong>Vérifie le champ « Angle » de chaque vue</strong> (face / dos / profil) : c'est lui qui indique à l'IA l'angle à produire ; le nom ne sert qu'au fichier d'export.</p>
+        <p class="hint">Toutes les photos servent de références du vêtement à chaque génération. <strong>Vérifie le champ « Angle »</strong> de chaque vue (face / dos / profil) : c'est lui qui indique à l'IA l'angle à produire. Un fichier nommé « logo… » part automatiquement dans la bibliothèque de logos.</p>
+        <div class="qnav">
+          <button class="btn ghost" data-back="2">← Retour</button>
+          <button id="qs3-next" class="btn primary" disabled>Continuer</button>
+        </div>
       </div>
-      <div class="col">
-        <h2><span class="num">3</span> Nouveau mannequin</h2>
+
+      <div class="qstep hidden" id="qs-4">
+        <p class="qcount">Question 4 sur 4</p>
+        <h2>À quoi ressemble le mannequin ?</h2>
         <form id="form-model">
           <label>Profil type (remplit les champs en un clic)
             <select id="model-preset">
@@ -113,10 +134,14 @@
           </label>
           <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel"></label>
           </details>
-          <p class="hint">Fond imposé : gris e-commerce uniforme <code>#F5F5F5</code>. Le vêtement est conservé à l'identique et généré <strong>sans aucun logo</strong> ; les logos originaux seront restaurés pixel pour pixel aux étapes 3-4.</p>
         </form>
+        <p id="q-recap" class="hint"></p>
         <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
+        <div class="qnav">
+          <button class="btn ghost" data-back="3">← Retour</button>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -335,14 +360,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081012"></script>
-<script src="vendor/libheif-bundle.js?v=2026081012"></script>
-<script src="js/config.js?v=2026081012"></script>
-<script src="js/masking.js?v=2026081012"></script>
-<script src="js/persist.js?v=2026081012"></script>
-<script src="js/admin.js?v=2026081012"></script>
-<script src="js/placement.js?v=2026081012"></script>
-<script src="js/colorfix.js?v=2026081012"></script>
-<script src="js/main.js?v=2026081012"></script>
+<script src="vendor/supabase.min.js?v=2026081013"></script>
+<script src="vendor/libheif-bundle.js?v=2026081013"></script>
+<script src="js/config.js?v=2026081013"></script>
+<script src="js/masking.js?v=2026081013"></script>
+<script src="js/persist.js?v=2026081013"></script>
+<script src="js/admin.js?v=2026081013"></script>
+<script src="js/placement.js?v=2026081013"></script>
+<script src="js/colorfix.js?v=2026081013"></script>
+<script src="js/main.js?v=2026081013"></script>
 </body>
 </html>

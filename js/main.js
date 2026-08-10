@@ -141,6 +141,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
+    if (n === 1) syncQuestionnaire();
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
     if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
@@ -318,6 +319,8 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function updateGenerateButton() {
+    if (el("qs3-next")) updateQNav();
+    if (curQ === 4) renderRecap();
     const vues = (App.state.views || []).filter(isVue);
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
@@ -345,6 +348,59 @@ const App = { state: {}, refreshLogoList: null };
     ado: { genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
   };
 
+  // ══════════ Questionnaire de l'étape 1 ══════════
+
+  let curQ = 1;
+
+  function goQ(n) {
+    curQ = n;
+    for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
+    if (n === 4) renderRecap();
+    updateQNav();
+  }
+
+  function updateQNav() {
+    el("qs3-next").disabled = (App.state.views || []).filter(isVue).length === 0;
+  }
+
+  const FRAMING_LABELS = {
+    source: "identique à la source", full: "plein pied",
+    mid: "plan américain", low: "cadré sur le bas",
+  };
+  const TYPE_LABELS = { worn: "photo portée", flat: "produit à plat", ghost: "photo ghost" };
+
+  function renderRecap() {
+    const type = document.querySelector("#project-type .type-card.active")?.dataset.type;
+    const views = App.state.views || [];
+    const vues = views.filter(isVue).length;
+    const refs = views.filter(v => v.role === "ref").length;
+    const pants = views.filter(v => v.role === "pant").length;
+    const libs = (App.state.logoLibrary || []).length;
+    const parts = [
+      "Type : " + (TYPE_LABELS[type] || "non choisi"),
+      "Cadrage : " + (FRAMING_LABELS[el("project-framing").value] || "?"),
+      `${vues} vue${vues > 1 ? "s" : ""} à générer`,
+    ];
+    if (refs) parts.push(`${refs} référence${refs > 1 ? "s" : ""}`);
+    if (pants) parts.push(`${pants} pantalon${pants > 1 ? "s" : ""}`);
+    if (libs) parts.push(`${libs} logo${libs > 1 ? "s" : ""} en bibliothèque`);
+    el("q-recap").textContent = "Récapitulatif — " + parts.join(" · ");
+  }
+
+  // Reprend le questionnaire au bon endroit (retour à l'étape 1, restauration…)
+  function syncQuestionnaire() {
+    const typeOk = !!document.querySelector("#project-type .type-card.active");
+    const hasVues = (App.state.views || []).filter(isVue).length > 0;
+    goQ(!typeOk ? 1 : hasVues ? 4 : 3);
+  }
+
+  function wireQuestionnaire() {
+    $$(".qnav [data-back]").forEach(b =>
+      b.addEventListener("click", () => goQ(+b.dataset.back)));
+    el("qs2-next").addEventListener("click", () => goQ(3));
+    el("qs3-next").addEventListener("click", () => goQ(4));
+  }
+
   function wirePresets() {
     el("model-preset").addEventListener("change", () => {
       const key = el("model-preset").value;
@@ -370,6 +426,8 @@ const App = { state: {}, refreshLogoList: null };
       $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
       updateGenerateButton();
       Persist.saveSoon();
+      // Esprit questionnaire : choisir une carte fait avancer (délai = feedback tactile)
+      if (curQ === 1) setTimeout(() => goQ(2), 220);
     }));
     el("project-framing").addEventListener("change", () => {
       App.state.framing = el("project-framing").value;
@@ -1299,6 +1357,7 @@ const App = { state: {}, refreshLogoList: null };
     wireAuth();
     wireProject();
     wirePresets();
+    wireQuestionnaire();
     wireSource();
     wireInventory();
     wireCleanZone();
