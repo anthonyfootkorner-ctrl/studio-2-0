@@ -354,6 +354,8 @@ const App = { state: {}, refreshLogoList: null };
     ado: { label: "Ado ~15", genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
   };
 
+  const ASSET_V = "2026081134";
+
   const POSE_DEFS = [
     { key: "auto", label: "Auto", pose: "" },
     { key: "debout", label: "Debout", pose: "Debout, naturelle, bras relâchés le long du corps" },
@@ -436,7 +438,7 @@ const App = { state: {}, refreshLogoList: null };
       b.className = "pose-card photo" + (active ? " active" : "");
       b.dataset.poseKey = p.key;
       const img = document.createElement("img");
-      img.src = `assets/pose-${presetKey}-${p.key}.jpg`;
+      img.src = `assets/pose-${presetKey}-${p.key}.jpg?v=${ASSET_V}`;
       img.loading = "lazy";
       const span = document.createElement("span");
       span.textContent = p.label;
@@ -748,6 +750,7 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("Les autres images sont des références produit (" + intro + ") : reproduis-en fidèlement le VÊTEMENT, mais n'en réutilise NI le décor, NI la table, NI le sol, NI la composition. Aucun élément de leurs arrière-plans ne doit apparaître." + (withRef ? " " + refPhrase : ""));
       lines.push(`Le mannequin : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
+      lines.push("ÉCHEC À ÉVITER : si le résultat montre le vêtement posé à plat, une table, du bois, un sol ou la scène d'une photo de référence, c'est RATÉ. Le vêtement est PORTÉ, en volume, sur le mannequin debout devant le fond demandé — jamais posé à plat, jamais flottant derrière lui.");
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
       lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
@@ -835,6 +838,57 @@ const App = { state: {}, refreshLogoList: null };
     return { mimeType: "image/jpeg", data: url.split(",")[1] };
   }
 
+  // Neutralise le décor d'une photo produit à plat AVANT l'envoi : le fond
+  // raccordé aux bords (table, sol, pièce) devient studio neutre — le modèle
+  // ne peut plus s'ancrer sur la scène de la photo de référence.
+  function neutralizeDecor(canvas) {
+    const maxDim = 1024;
+    const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+    const W = Math.round(canvas.width * sc), H = Math.round(canvas.height * sc);
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(canvas, 0, 0, W, H);
+    const id = ctx.getImageData(0, 0, W, H);
+    const d = id.data;
+    const samples = [];
+    for (let x = 0; x < W; x += 3) { samples.push(x, (H - 1) * W + x); }
+    for (let y = 0; y < H; y += 3) { samples.push(y * W, y * W + W - 1); }
+    const med = ch => {
+      const a = samples.map(p => d[p * 4 + ch]).sort((u, v) => u - v);
+      return a[a.length >> 1];
+    };
+    const br = med(0), bg = med(1), bb = med(2);
+    const TOL = 110; // large : le grain d'une table en bois varie beaucoup
+    const near = p => {
+      const i = p * 4;
+      return Math.abs(d[i] - br) + Math.abs(d[i + 1] - bg) + Math.abs(d[i + 2] - bb) < TOL;
+    };
+    const seen = new Uint8Array(W * H);
+    const queue = new Int32Array(W * H);
+    let head = 0, tail = 0;
+    const push = p => { if (!seen[p] && near(p)) { seen[p] = 1; queue[tail++] = p; } };
+    for (let x = 0; x < W; x++) { push(x); push((H - 1) * W + x); }
+    for (let y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); }
+    while (head < tail) {
+      const p = queue[head++];
+      const x = p % W, y = (p / W) | 0;
+      if (x > 0) push(p - 1);
+      if (x < W - 1) push(p + 1);
+      if (y > 0) push(p - W);
+      if (y < H - 1) push(p + W);
+    }
+    const share = tail / (W * H);
+    // Fond non identifiable (produit clair sur fond clair, décor complexe) : ne rien toucher.
+    if (share < 0.2 || share > 0.92) return canvas;
+    for (let p = 0; p < W * H; p++) {
+      if (seen[p]) { const i = p * 4; d[i] = 245; d[i + 1] = 245; d[i + 2] = 245; }
+    }
+    ctx.putImageData(id, 0, 0);
+    return c;
+  }
+
   function isCreationProject() {
     const t = document.querySelector("#project-type .type-card.active")?.dataset.type;
     return t === "flat" || t === "ghost";
@@ -899,7 +953,7 @@ const App = { state: {}, refreshLogoList: null };
       images.push(canvasToB64(base, 2048));
       meta.push({ kind: "base" });
     }
-    images.push(canvasToB64(view.source, creation ? 1024 : 1536));
+    images.push(canvasToB64(creation ? neutralizeDecor(view.source) : view.source, creation ? 1024 : 1536));
     meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
     if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
     if (!creation && bgKey === "custom") {
@@ -917,7 +971,7 @@ const App = { state: {}, refreshLogoList: null };
     }).sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
     for (const v of others) {
       if (images.length >= 5) break;
-      images.push(canvasToB64(v.source, 1024));
+      images.push(canvasToB64(creation ? neutralizeDecor(v.source) : v.source, 1024));
       meta.push({ kind: v.role === "pant" ? "pant" : "product", name: v.name });
     }
     const resp = await fetch(GENERATE_FN_URL, {
