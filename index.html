@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081132">
+<link rel="stylesheet" href="styles.css?v=2026081133">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v32</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v33</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -63,7 +63,7 @@
     <div class="qwrap">
 
       <div class="qstep" id="qs-1">
-        <p class="qcount">Question 1 sur 5</p>
+        <p class="qcount">Question 1 sur 6</p>
         <h2 class="qtitle">Quel type de <em>photo</em> as-tu&nbsp;?</h2>
         
         <div id="project-type" class="photo-cards">
@@ -86,7 +86,7 @@
       </div>
 
       <div class="qstep hidden" id="qs-2">
-        <p class="qcount">Question 2 sur 5</p>
+        <p class="qcount">Question 2 sur 6</p>
         <h2 class="qtitle">Quel <em>cadrage</em> pour la photo finale&nbsp;?</h2>
         
         <select id="project-framing" class="hidden" aria-hidden="true">
@@ -124,7 +124,40 @@
       </div>
 
       <div class="qstep hidden" id="qs-3">
-        <p class="qcount">Question 3 sur 5</p>
+        <p class="qcount">Question 3 sur 6</p>
+        <h2 class="qtitle">Quel <em>fond</em> pour la photo finale&nbsp;?</h2>
+        <div id="bg-cards" class="photo-cards framing">
+          <button class="photo-card active" data-bg="studio">
+            <span class="ph swatch" style="background:#F5F5F5"></span>
+            <strong>Studio</strong>
+            <small>Gris très clair #F5F5F5, le standard e-commerce</small>
+          </button>
+          <button class="photo-card" data-bg="white">
+            <span class="ph swatch" style="background:#FFFFFF"></span>
+            <strong>Blanc pur</strong>
+            <small>#FFFFFF, fond boutique épuré</small>
+          </button>
+          <button class="photo-card" data-bg="grey">
+            <span class="ph swatch" style="background:#E3E3E3"></span>
+            <strong>Gris</strong>
+            <small>#E3E3E3, gris studio plus marqué</small>
+          </button>
+          <button class="photo-card" data-bg="custom">
+            <span class="ph swatch" id="bg-custom-thumb" style="background:#1a1a1a;color:#F2F1ED;display:flex;align-items:center;justify-content:center;font-size:1.6rem">🖼</span>
+            <strong>Personnalisé</strong>
+            <small>Ta propre image en décor (boutique, rue, texture…)</small>
+          </button>
+        </div>
+        <input type="file" id="bg-custom-file" accept="image/png,image/jpeg,image/webp" hidden>
+        <p class="hint">Le mannequin sera intégré dans le fond choisi. « Personnalisé » : charge une image, elle sert de décor complet.</p>
+        <div class="qnav">
+          <button class="btn ghost" data-back="2">← Retour</button>
+          <button id="qsbg-next" class="btn primary">Continuer</button>
+        </div>
+      </div>
+
+      <div class="qstep hidden" id="qs-4">
+        <p class="qcount">Question 4 sur 6</p>
         <h2 class="qtitle">Ajoute les <em>photos</em> du produit</h2>
         
         <div id="drop-source" class="dropzone">
@@ -135,13 +168,13 @@
         <ul id="views-list" class="views-list"></ul>
         <p class="hint">Toutes les photos servent de références du vêtement à chaque génération. <strong>Vérifie le champ « Angle »</strong> de chaque vue (face / dos / profil) : c'est lui qui indique à l'IA l'angle à produire. Un fichier nommé « logo… » part automatiquement dans la bibliothèque de logos.</p>
         <div class="qnav">
-          <button class="btn ghost" data-back="2">← Retour</button>
+          <button class="btn ghost" data-back="3">← Retour</button>
           <button id="qs3-next" class="btn primary" disabled>Continuer</button>
         </div>
       </div>
 
-      <div class="qstep hidden" id="qs-4">
-        <p class="qcount">Question 4 sur 5</p>
+      <div class="qstep hidden" id="qs-5">
+        <p class="qcount">Question 5 sur 6</p>
         <h2 class="qtitle">Choisis ton <em>mannequin</em></h2>
         <select id="model-preset" class="hidden" aria-hidden="true">
           <option value="">— Choisir un profil —</option>
@@ -167,13 +200,13 @@
         </div>
         <p class="hint" style="text-align:center">Un clic choisit le mannequin et affiche ses poses. Pour un profil sur mesure, ouvre « Détails » à l'étape suivante.</p>
         <div class="qnav">
-          <button class="btn ghost" data-back="3">← Retour</button>
+          <button class="btn ghost" data-back="4">← Retour</button>
           <span></span>
         </div>
       </div>
 
-      <div class="qstep hidden" id="qs-5">
-        <p class="qcount">Question 5 sur 5</p>
+      <div class="qstep hidden" id="qs-6">
+        <p class="qcount">Question 6 sur 6</p>
         <h2 class="qtitle">Choisis sa <em>pose</em></h2>
         <div id="pose-cards" class="pose-cards"></div>
         <form id="form-model">
@@ -198,7 +231,7 @@
         <p id="q-recap" class="hint"></p>
         <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
         <div class="qnav">
-          <button class="btn ghost" data-back="4">← Retour</button>
+          <button class="btn ghost" data-back="5">← Retour</button>
         </div>
       </div>
     </div>
@@ -424,14 +457,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081132"></script>
-<script src="vendor/libheif-bundle.js?v=2026081132"></script>
-<script src="js/config.js?v=2026081132"></script>
-<script src="js/masking.js?v=2026081132"></script>
-<script src="js/persist.js?v=2026081132"></script>
-<script src="js/admin.js?v=2026081132"></script>
-<script src="js/placement.js?v=2026081132"></script>
-<script src="js/colorfix.js?v=2026081132"></script>
-<script src="js/main.js?v=2026081132"></script>
+<script src="vendor/supabase.min.js?v=2026081133"></script>
+<script src="vendor/libheif-bundle.js?v=2026081133"></script>
+<script src="js/config.js?v=2026081133"></script>
+<script src="js/masking.js?v=2026081133"></script>
+<script src="js/persist.js?v=2026081133"></script>
+<script src="js/admin.js?v=2026081133"></script>
+<script src="js/placement.js?v=2026081133"></script>
+<script src="js/colorfix.js?v=2026081133"></script>
+<script src="js/main.js?v=2026081133"></script>
 </body>
 </html>

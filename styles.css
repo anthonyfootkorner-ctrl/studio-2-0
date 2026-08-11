@@ -1051,3 +1051,7 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 
 /* 8 profils en 2 rangées de 4 */
 .pose-cards.profiles-8 { grid-template-columns: repeat(4, 1fr); max-width: 640px; margin-left: auto; margin-right: auto; }
+
+/* Cartes de choix du fond */
+.photo-card .ph.swatch { border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; }
+#bg-cards .photo-card.active .ph.swatch { outline: 2px solid #D9E86B; outline-offset: 2px; }

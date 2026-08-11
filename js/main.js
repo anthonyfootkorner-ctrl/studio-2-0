@@ -322,7 +322,7 @@ const App = { state: {}, refreshLogoList: null };
 
   function updateGenerateButton() {
     if (el("qs3-next")) updateQNav();
-    if (curQ === 5) renderRecap();
+    if (curQ === 6) renderRecap();
     const vues = (App.state.views || []).filter(isVue);
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
@@ -461,15 +461,60 @@ const App = { state: {}, refreshLogoList: null };
     applyPoseSelection();
   }
 
+  // ── Fond de la photo finale ──
+  const BG_DEFS = {
+    studio: { label: "Studio", hex: "#F5F5F5" },
+    white: { label: "Blanc pur", hex: "#FFFFFF" },
+    grey: { label: "Gris", hex: "#E3E3E3" },
+    custom: { label: "Personnalisé" },
+  };
+  function currentBg() {
+    const key = App.state.background || "studio";
+    return (key === "custom" && !App.state.customBg) ? "studio" : key;
+  }
+  function wireBgCards() {
+    const setActive = key => $$("#bg-cards .photo-card").forEach(x =>
+      x.classList.toggle("active", x.dataset.bg === key));
+    $$("#bg-cards .photo-card").forEach(b => b.addEventListener("click", () => {
+      if (b.dataset.bg === "custom") { el("bg-custom-file").click(); return; }
+      App.state.background = b.dataset.bg;
+      setActive(b.dataset.bg);
+      renderRecap();
+      Persist.saveSoon();
+    }));
+    el("bg-custom-file").addEventListener("change", async () => {
+      const f = el("bg-custom-file").files[0];
+      if (!f) return;
+      try {
+        const bmp = await createImageBitmap(f);
+        const c = document.createElement("canvas");
+        const sc = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+        c.width = Math.round(bmp.width * sc);
+        c.height = Math.round(bmp.height * sc);
+        c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+        App.state.customBg = c;
+        App.state.background = "custom";
+        const th = el("bg-custom-thumb");
+        th.textContent = "";
+        th.style.background = `center / cover no-repeat url(${c.toDataURL("image/jpeg", 0.6)})`;
+        setActive("custom");
+        renderRecap();
+        Persist.saveSoon();
+      } catch {
+        alert("Image illisible — utilise un JPG, PNG ou WebP.");
+      }
+    });
+  }
+
   // ══════════ Questionnaire de l'étape 1 ══════════
 
   let curQ = 1;
 
   function goQ(n) {
     curQ = n;
-    for (let i = 1; i <= 5; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
+    for (let i = 1; i <= 6; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
     if (n === 2) syncFramingCards();
-    if (n === 5) {
+    if (n === 6) {
       if (!el("pose-cards").children.length) buildPoseGrid(App.state.presetKey || "h20");
       renderRecap();
     }
@@ -499,6 +544,7 @@ const App = { state: {}, refreshLogoList: null };
       "Cadrage : " + (FRAMING_LABELS[el("project-framing").value] || "?"),
       `${vues} vue${vues > 1 ? "s" : ""} à générer`,
     ];
+    parts.push("Fond : " + BG_DEFS[currentBg()].label);
     if (preset) parts.push("Mannequin : " + preset.label + (preset.origine ? " (" + preset.origine.toLowerCase() + ")" : ""));
     const nbPoses = selectedPoses().length;
     if (App.state.poseLabel) parts.push("Pose" + (nbPoses > 1 ? "s" : "") + " : " + App.state.poseLabel);
@@ -513,7 +559,7 @@ const App = { state: {}, refreshLogoList: null };
     const typeOk = !!document.querySelector("#project-type .type-card.active");
     const hasVues = (App.state.views || []).filter(isVue).length > 0;
     if (App.state.presetKey) syncPoseViews();
-    goQ(!typeOk ? 1 : !hasVues ? 3 : App.state.presetKey ? 5 : 4);
+    goQ(!typeOk ? 1 : !hasVues ? 4 : App.state.presetKey ? 6 : 5);
   }
 
   function syncFramingCards() {
@@ -537,7 +583,9 @@ const App = { state: {}, refreshLogoList: null };
       b.addEventListener("click", () => goQ(+b.dataset.back)));
     el("qs2-next").addEventListener("click", () => goQ(3));
     wireFramingCards();
-    el("qs3-next").addEventListener("click", () => goQ(4));
+    el("qs3-next").addEventListener("click", () => goQ(5));
+    el("qsbg-next").addEventListener("click", () => goQ(4));
+    wireBgCards();
   }
 
   function wireProfileCards() {
@@ -546,7 +594,7 @@ const App = { state: {}, refreshLogoList: null };
       el("model-preset").value = b.dataset.preset;
       el("model-preset").dispatchEvent(new Event("change"));
       buildPoseGrid(b.dataset.preset);
-      if (curQ === 4) setTimeout(() => goQ(5), 220);
+      if (curQ === 5) setTimeout(() => goQ(6), 220);
     }));
   }
 
@@ -671,6 +719,7 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function buildPrompt(view, meta, extraNote) {
+    const bgKey = currentBg();
     const desc = modelDescription() || "mannequin adulte au look neutre";
     const pose = (view.pose || el("m-pose").value.trim()) || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
@@ -693,7 +742,9 @@ const App = { state: {}, refreshLogoList: null };
       const intro = type === "ghost"
         ? "packshots « ghost » (vêtement en volume, porté par personne)"
         : "photos du produit à plat, non porté";
-      lines.push("TÂCHE : ÉDITE l'image 1 — un fond studio VIDE (gris #F5F5F5). AJOUTE sur ce fond un mannequin portant le produit des références. Le résultat est l'image 1 remplie avec le mannequin en pied de photo e-commerce — rien d'autre.");
+      lines.push(bgKey === "custom"
+        ? "TÂCHE : ÉDITE l'image 1 — le DÉCOR de la photo finale. AJOUTE dans ce décor un mannequin portant le produit des références, intégré de façon RÉALISTE : échelle crédible, perspective et point de vue cohérents avec le décor, lumière et ombres accordées à la scène. NE MODIFIE PAS le décor lui-même."
+        : `TÂCHE : ÉDITE l'image 1 — un fond studio VIDE (uni ${BG_DEFS[bgKey].hex}). AJOUTE sur ce fond un mannequin portant le produit des références. Le résultat est l'image 1 remplie avec le mannequin en pied de photo e-commerce — rien d'autre.`);
       lines.push("Les autres images sont des références produit (" + intro + ") : reproduis-en fidèlement le VÊTEMENT, mais n'en réutilise NI le décor, NI la table, NI le sol, NI la composition. Aucun élément de leurs arrière-plans ne doit apparaître." + (withRef ? " " + refPhrase : ""));
       lines.push(`Le mannequin : ${desc}.`);
       lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
@@ -716,13 +767,16 @@ const App = { state: {}, refreshLogoList: null };
 
     // Rôles explicites et numérotés de chaque image fournie.
     const roleTxt = {
-      base: "le FOND STUDIO VIDE de la photo finale — c'est la base à éditer : place le mannequin dessus, ne change ni la couleur ni l'uniformité du fond.",
+      base: bgKey === "custom"
+        ? "le DÉCOR de la photo finale — c'est la base à éditer : place le mannequin dedans sans modifier le décor."
+        : "le FOND STUDIO VIDE de la photo finale — c'est la base à éditer : place le mannequin dessus, ne change ni la couleur ni l'uniformité du fond.",
       main: (type === "flat" || type === "ghost")
         ? "la référence produit principale (la face du vêtement correspondant à la vue à produire). RÉFÉRENCE UNIQUEMENT : ne pas retoucher, ne pas réutiliser son décor ni sa composition."
         : "la photo produit source à transformer",
       identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. ATTENTION : cette image sert UNIQUEMENT à l'identité de la personne. NE RECOPIE PAS cette image : pas sa pose, pas son angle de vue, pas son cadrage, pas sa composition. Le résultat correspond à l'image 1 et à la VUE À PRODUIRE, jamais à cette image de référence.",
       pant: "le PANTALON que le mannequin doit porter — reproduis-le à l'identique (couleur, coupe, matière, coutures, détails), correctement ajusté au bas du corps.",
       product: "autre face du MÊME produit (référence vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas la recopier telle quelle.",
+      decor: "le DÉCOR à utiliser comme NOUVEAU FOND : remplace tout l'arrière-plan de la photo par ce décor, avec une intégration réaliste (échelle, perspective, lumière, ombres de contact).",
     };
     lines.push("Rôles des images fournies :\n- " +
       meta.map((m, i) => `Image ${i + 1}${m.name ? ` (« ${m.name} »)` : ""} : ${roleTxt[m.kind]}`).join("\n- "));
@@ -732,10 +786,14 @@ const App = { state: {}, refreshLogoList: null };
     }
 
     lines.push(
+      "INTÉGRATION NATURELLE : AUCUN liseré, halo ou contour blanc autour du mannequin — pas d'effet d'autocollant, de détourage ou de silhouette collée. Le fond touche directement les cheveux, la peau et le vêtement, avec au plus une ombre de contact très douce sous les pieds.");
+    lines.push(
       "FIDÉLITÉ ABSOLUE AU PRODUIT : reproduis les couleurs EXACTES du vêtement (teinte, saturation, luminosité) telles qu'elles apparaissent sur les photos — sans embellir, sans réchauffer ni adoucir, sans modifier la balance des blancs. Reproduis aussi TOUS les éléments graphiques : bandes, traits, lignes contrastées, empiècements, panneaux de couleur, surpiqûres — n'en supprime, déplace ni simplifie AUCUN, même petit ou discret.");
     lines.push(
       "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
-      "Fond studio uni exactement #F5F5F5 sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.",
+      bgKey === "custom"
+        ? "Le décor fourni est le SEUL arrière-plan de l'image finale : la scène de la photo source (table, sol, objets, pièce, vêtement posé, ancien fond) doit TOTALEMENT disparaître."
+        : `Fond studio uni exactement ${BG_DEFS[bgKey].hex} sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.`,
       "BORDS ET BAS DE L'IMAGE impeccables : le fond reste uniforme jusqu'aux quatre bords et dans les coins (aucun sol, parquet, mur ou objet). Si un short ou un bas neutre est visible en bas de l'image, il est NET, uni et sans tache, flou ni artefact — comme le reste de la photo.",
     );
     const creation = type === "flat" || type === "ghost";
@@ -822,18 +880,33 @@ const App = { state: {}, refreshLogoList: null };
     // en mode création on lui donne donc un fond studio VIDE comme base à éditer.
     const meta = [];
     const images = [];
+    const bgKey = currentBg();
     if (creation) {
       const base = document.createElement("canvas");
       base.width = 1536; base.height = 2048; // portrait 3:4
       const bctx = base.getContext("2d");
-      bctx.fillStyle = "#F5F5F5";
-      bctx.fillRect(0, 0, base.width, base.height);
+      if (bgKey === "custom") {
+        // décor personnalisé : recadré « cover » dans le portrait 3:4
+        const bg = App.state.customBg;
+        const sc = Math.max(base.width / bg.width, base.height / bg.height);
+        bctx.imageSmoothingQuality = "high";
+        bctx.drawImage(bg, (base.width - bg.width * sc) / 2, (base.height - bg.height * sc) / 2,
+          bg.width * sc, bg.height * sc);
+      } else {
+        bctx.fillStyle = BG_DEFS[bgKey].hex;
+        bctx.fillRect(0, 0, base.width, base.height);
+      }
       images.push(canvasToB64(base, 2048));
       meta.push({ kind: "base" });
     }
     images.push(canvasToB64(view.source, creation ? 1024 : 1536));
     meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
     if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
+    if (!creation && bgKey === "custom") {
+      // photo portée + décor personnalisé : le décor part en référence dédiée
+      images.push(canvasToB64(App.state.customBg, 1024));
+      meta.push({ kind: "decor" });
+    }
     // Ne jamais envoyer deux fois la même photo : les vues dérivées (multi-poses)
     // partagent le canvas source de leur vue d'origine.
     const seenSources = new Set([view.source]);

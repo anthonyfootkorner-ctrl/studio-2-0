@@ -77,6 +77,8 @@ const Persist = (() => {
         framing: App.state.framing || "source",
         presetKey: App.state.presetKey || "",
         poseKeys: App.state.poseKeys || [],
+        background: App.state.background || "studio",
+        customBg: await canvasToBlob(App.state.customBg),
         viewSeq: App.state.viewSeq || views.length,
         libSeq: App.state.libSeq || 0,
         logoLibrary: (App.state.logoLibrary || []).map(it => ({
@@ -144,6 +146,10 @@ const Persist = (() => {
     s.framing = data.framing || "source";
     s.presetKey = data.presetKey || "";
     s.poseKeys = data.poseKeys || [];
+    s.background = data.background || "studio";
+    s.customBg = await blobToCanvas(data.customBg);
+    document.querySelectorAll("#bg-cards .photo-card").forEach(b =>
+      b.classList.toggle("active", b.dataset.bg === s.background));
     document.querySelectorAll("#project-type .type-card").forEach(b =>
       b.classList.toggle("active", b.dataset.type === s.projectType));
     const framingSel = document.getElementById("project-framing");
