@@ -834,8 +834,14 @@ const App = { state: {}, refreshLogoList: null };
     images.push(canvasToB64(view.source, creation ? 1024 : 1536));
     meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
     if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
-    const others = App.state.views.filter(v => v !== view)
-      .sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
+    // Ne jamais envoyer deux fois la même photo : les vues dérivées (multi-poses)
+    // partagent le canvas source de leur vue d'origine.
+    const seenSources = new Set([view.source]);
+    const others = App.state.views.filter(v => {
+      if (v === view || seenSources.has(v.source)) return false;
+      seenSources.add(v.source);
+      return true;
+    }).sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
     for (const v of others) {
       if (images.length >= 5) break;
       images.push(canvasToB64(v.source, 1024));
