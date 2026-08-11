@@ -75,6 +75,8 @@ const Persist = (() => {
         cur: App.state.cur,
         projectType: App.state.projectType || "worn",
         framing: App.state.framing || "source",
+        presetKey: App.state.presetKey || "",
+        poseKeys: App.state.poseKeys || [],
         viewSeq: App.state.viewSeq || views.length,
         libSeq: App.state.libSeq || 0,
         logoLibrary: (App.state.logoLibrary || []).map(it => ({
@@ -89,6 +91,10 @@ const Persist = (() => {
           role: v.role || "vue",
           angle: v.angle || "face",
           flat: !!v.flat,
+          pose: v.pose || "",
+          poseKey: v.poseKey || "",
+          poseClone: !!v.poseClone,
+          cloneOf: v.cloneOf || "",
           exported: !!v.exported,
           source: await canvasToBlob(v.source),
           gen: await canvasToBlob(v.gen),
@@ -136,6 +142,8 @@ const Persist = (() => {
     // Migration : les anciens projets utilisaient un drapeau « à plat » par vue.
     s.projectType = data.projectType || (data.views.some(v => v.flat) ? "flat" : "worn");
     s.framing = data.framing || "source";
+    s.presetKey = data.presetKey || "";
+    s.poseKeys = data.poseKeys || [];
     document.querySelectorAll("#project-type .type-card").forEach(b =>
       b.classList.toggle("active", b.dataset.type === s.projectType));
     const framingSel = document.getElementById("project-framing");
@@ -173,6 +181,10 @@ const Persist = (() => {
         role: d.role || "vue",
         angle: d.angle || "face",
         flat: !!d.flat,
+        pose: d.pose || "",
+        poseKey: d.poseKey || "",
+        poseClone: !!d.poseClone,
+        cloneOf: d.cloneOf || "",
         exported: !!d.exported,
         source,
         gen: await blobToCanvas(d.gen),

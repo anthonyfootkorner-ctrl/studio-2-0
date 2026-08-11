@@ -250,6 +250,7 @@ const App = { state: {}, refreshLogoList: null };
     const ul = el("views-list");
     ul.innerHTML = "";
     (App.state.views || []).forEach((v, i) => {
+      if (v.poseClone) return; // dérivée d'une pose cochée : gérée automatiquement
       const li = document.createElement("li");
       const img = document.createElement("img");
       img.src = thumbnail(v.source);
@@ -306,6 +307,7 @@ const App = { state: {}, refreshLogoList: null };
       bDel.title = "Retirer cette vue";
       bDel.addEventListener("click", () => {
         App.state.views.splice(i, 1);
+        App.state.views = App.state.views.filter(x => !(x.poseClone && x.cloneOf === v.name && !x.gen));
         if (App.state.cur >= App.state.views.length) App.state.cur = App.state.views.length - 1;
         if (App.state.views.length) selectView(Math.max(0, App.state.cur), { force: true });
         else resetProject(true);
@@ -320,7 +322,7 @@ const App = { state: {}, refreshLogoList: null };
 
   function updateGenerateButton() {
     if (el("qs3-next")) updateQNav();
-    if (curQ === 4) renderRecap();
+    if (curQ === 5) renderRecap();
     const vues = (App.state.views || []).filter(isVue);
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
@@ -363,18 +365,76 @@ const App = { state: {}, refreshLogoList: null };
     { key: "ajuste", label: "Ajuste", pose: "En train d'ajuster le col ou la manche du vêtement, geste naturel" },
   ];
 
+  const poseDef = key => POSE_DEFS.find(p => p.key === key);
+
+  // Plusieurs poses cochées = une photo générée par pose, toujours avec le MÊME
+  // mannequin : la première génération validée sert de référence d'identité aux
+  // suivantes (et la photo du profil choisi sert de référence à la première).
+  function selectedPoses() {
+    const keys = (App.state.poseKeys || []).filter(k => k !== "auto" && poseDef(k));
+    return keys.map(poseDef);
+  }
+
+  function applyPoseSelection() {
+    const sel = selectedPoses();
+    App.state.poseLabel = sel.length ? sel.map(p => p.label).join(" + ") : "Auto";
+    el("m-pose").value = sel.length ? sel[0].pose : "";
+    syncPoseViews();
+    renderRecap();
+    Persist.saveSoon();
+  }
+
+  // Fait correspondre les vues dérivées aux poses cochées : chaque pose
+  // au-delà de la première clone les vues à générer (même photo source).
+  // Une vue dérivée déjà générée (payée) n'est jamais supprimée.
+  function syncPoseViews() {
+    const views = App.state.views || [];
+    const sel = selectedPoses();
+    App.state.views = views.filter(v => !v.poseClone || v.gen);
+    const bases = App.state.views.filter(v => isVue(v) && !v.poseClone);
+    for (const base of bases) {
+      base.pose = sel.length ? sel[0].pose : "";
+      base.poseKey = sel.length ? sel[0].key : "";
+    }
+    for (const p of sel.slice(1)) {
+      for (const base of bases) {
+        const exists = App.state.views.some(v => v.poseClone && v.poseKey === p.key &&
+          v.cloneOf === base.name);
+        if (exists) continue;
+        App.state.viewSeq = (App.state.viewSeq || 0) + 1;
+        App.state.views.push({
+          id: "pc-" + App.state.viewSeq,
+          name: base.name + " · " + p.label.toLowerCase(),
+          role: "vue",
+          angle: base.angle || "face",
+          flat: base.flat,
+          source: base.source,
+          gen: null,
+          logos: [],
+          logoSeq: 0,
+          pose: p.pose,
+          poseKey: p.key,
+          poseClone: true,
+          cloneOf: base.name,
+        });
+      }
+    }
+    renderViewSwitcher();
+    updateGenerateButton();
+  }
+
   // Construit la grille des poses AVEC les photos du mannequin choisi
   function buildPoseGrid(presetKey) {
     const grid = el("pose-cards");
     grid.innerHTML = "";
     App.state.presetKey = presetKey;
-    App.state.poseLabel = "Auto";
-    el("m-pose").value = "";
+    App.state.poseKeys = (App.state.poseKeys || []).filter(k => poseDef(k) && k !== "auto");
     for (const p of POSE_DEFS) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "pose-card photo" + (p.key === "auto" ? " active" : "");
-      b.dataset.pose = p.pose;
+      const active = p.key === "auto" ? !App.state.poseKeys.length : App.state.poseKeys.includes(p.key);
+      b.className = "pose-card photo" + (active ? " active" : "");
+      b.dataset.poseKey = p.key;
       const img = document.createElement("img");
       img.src = `assets/pose-${presetKey}-${p.key}.jpg`;
       img.loading = "lazy";
@@ -382,14 +442,23 @@ const App = { state: {}, refreshLogoList: null };
       span.textContent = p.label;
       b.append(img, span);
       b.addEventListener("click", () => {
-        grid.querySelectorAll(".pose-card").forEach(x => x.classList.toggle("active", x === b));
-        el("m-pose").value = p.pose;
-        App.state.poseLabel = p.label;
-        renderRecap();
-        Persist.saveSoon();
+        const keys = App.state.poseKeys || [];
+        if (p.key === "auto") {
+          App.state.poseKeys = [];
+        } else if (keys.includes(p.key)) {
+          App.state.poseKeys = keys.filter(k => k !== p.key);
+        } else {
+          App.state.poseKeys = [...keys, p.key];
+        }
+        grid.querySelectorAll(".pose-card").forEach(x => {
+          const k = x.dataset.poseKey;
+          x.classList.toggle("active", k === "auto" ? !App.state.poseKeys.length : App.state.poseKeys.includes(k));
+        });
+        applyPoseSelection();
       });
       grid.appendChild(b);
     }
+    applyPoseSelection();
   }
 
   // ══════════ Questionnaire de l'étape 1 ══════════
@@ -431,7 +500,8 @@ const App = { state: {}, refreshLogoList: null };
       `${vues} vue${vues > 1 ? "s" : ""} à générer`,
     ];
     if (preset) parts.push("Mannequin : " + preset.label + (preset.origine ? " (" + preset.origine.toLowerCase() + ")" : ""));
-    if (App.state.poseLabel) parts.push("Pose : " + App.state.poseLabel);
+    const nbPoses = selectedPoses().length;
+    if (App.state.poseLabel) parts.push("Pose" + (nbPoses > 1 ? "s" : "") + " : " + App.state.poseLabel);
     if (refs) parts.push(`${refs} référence${refs > 1 ? "s" : ""}`);
     if (pants) parts.push(`${pants} pantalon${pants > 1 ? "s" : ""}`);
     if (libs) parts.push(`${libs} logo${libs > 1 ? "s" : ""} en bibliothèque`);
@@ -442,6 +512,7 @@ const App = { state: {}, refreshLogoList: null };
   function syncQuestionnaire() {
     const typeOk = !!document.querySelector("#project-type .type-card.active");
     const hasVues = (App.state.views || []).filter(isVue).length > 0;
+    if (App.state.presetKey) syncPoseViews();
     goQ(!typeOk ? 1 : !hasVues ? 3 : App.state.presetKey ? 5 : 4);
   }
 
@@ -601,7 +672,7 @@ const App = { state: {}, refreshLogoList: null };
 
   function buildPrompt(view, meta, extraNote) {
     const desc = modelDescription() || "mannequin adulte au look neutre";
-    const pose = el("m-pose").value.trim() || "pose e-commerce naturelle, différente de la photo source";
+    const pose = (view.pose || el("m-pose").value.trim()) || "pose e-commerce naturelle, différente de la photo source";
     const acc = el("m-accessoires").value.trim();
     const notes = el("m-notes").value.trim();
     // L'interface est la source de vérité (évite tout état obsolète).
