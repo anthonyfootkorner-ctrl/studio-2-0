@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081027">
+<link rel="stylesheet" href="styles.css?v=2026081128">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v27</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v28</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -317,6 +317,9 @@
           <label>Rotation : <span id="sel-rotation-label">0°</span>
             <input type="range" id="sel-rotation" min="-180" max="180" value="0" step="1">
           </label>
+          <label>Rotation horizontale (perspective) : <span id="sel-roty-label">0°</span>
+            <input type="range" id="sel-roty" min="-70" max="70" value="0" step="1">
+          </label>
           <label>Fusion du bord (halo)
             <select id="sel-edge">
               <option value="0,0">Aucune</option>
@@ -421,14 +424,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081027"></script>
-<script src="vendor/libheif-bundle.js?v=2026081027"></script>
-<script src="js/config.js?v=2026081027"></script>
-<script src="js/masking.js?v=2026081027"></script>
-<script src="js/persist.js?v=2026081027"></script>
-<script src="js/admin.js?v=2026081027"></script>
-<script src="js/placement.js?v=2026081027"></script>
-<script src="js/colorfix.js?v=2026081027"></script>
-<script src="js/main.js?v=2026081027"></script>
+<script src="vendor/supabase.min.js?v=2026081128"></script>
+<script src="vendor/libheif-bundle.js?v=2026081128"></script>
+<script src="js/config.js?v=2026081128"></script>
+<script src="js/masking.js?v=2026081128"></script>
+<script src="js/persist.js?v=2026081128"></script>
+<script src="js/admin.js?v=2026081128"></script>
+<script src="js/placement.js?v=2026081128"></script>
+<script src="js/colorfix.js?v=2026081128"></script>
+<script src="js/main.js?v=2026081128"></script>
 </body>
 </html>

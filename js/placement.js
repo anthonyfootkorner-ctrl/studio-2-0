@@ -23,6 +23,33 @@ const Placement = (() => {
     return logo.effCanvas;
   }
 
+  // Simule la rotation autour de l'axe vertical : la largeur se resserre (cos θ)
+  // et les hauteurs forment un trapèze — le bord « proche » est plus haut.
+  // Rendu par rubans verticaux de 1 px, mis en cache tant que l'angle ne change pas.
+  function perspectiveCanvas(logo) {
+    const base = effectiveCanvas(logo);
+    const roty = logo.placement.roty || 0;
+    if (!roty) return base;
+    const key = logo.effKey + "|y" + roty;
+    if (logo.perspKey === key && logo.perspCanvas) return logo.perspCanvas;
+    const w = base.width, h = base.height;
+    const rad = roty * Math.PI / 180;
+    const wOut = Math.max(2, Math.round(w * Math.cos(rad)));
+    const k = Math.sin(rad) * 0.22;
+    const c = Masking.makeCanvas(w, h);
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    const x0 = (w - wOut) / 2;
+    for (let i = 0; i < wOut; i++) {
+      const t = i / (wOut - 1) - 0.5;
+      const hs = 1 + t * 2 * k;
+      ctx.drawImage(base, (i / wOut) * w, 0, w / wOut, h, x0 + i, (h - h * hs) / 2, 1, h * hs);
+    }
+    logo.perspCanvas = c;
+    logo.perspKey = key;
+    return c;
+  }
+
   function placedRect(logo) {
     const s = logo.placement.scale / 100;
     return {
@@ -37,7 +64,7 @@ const Placement = (() => {
   function drawPlaced(ctx, logo, scale) {
     const r = placedRect(logo);
     const rot = (logo.placement.rotation || 0) * Math.PI / 180;
-    const canvas = effectiveCanvas(logo);
+    const canvas = perspectiveCanvas(logo);
     if (!rot) {
       ctx.drawImage(canvas, r.x * scale, r.y * scale, r.w * scale, r.h * scale);
       return;
@@ -126,7 +153,7 @@ const Placement = (() => {
     for (const logo of logos) {
       const r = placedRect(logo);
       const rot = logo.placement.rotation || 0;
-      if (logo.placement.scale === 100 && !rot) {
+      if (logo.placement.scale === 100 && !rot && !(logo.placement.roty || 0)) {
         // Pose pixel pour pixel, sans interpolation.
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(effectiveCanvas(logo), Math.round(r.x), Math.round(r.y));
@@ -159,6 +186,8 @@ const Placement = (() => {
       el("sel-scale-label").textContent = Math.round(logo.placement.scale) + " %";
       el("sel-rotation").value = logo.placement.rotation || 0;
       el("sel-rotation-label").textContent = Math.round(logo.placement.rotation || 0) + "°";
+      el("sel-roty").value = logo.placement.roty || 0;
+      el("sel-roty-label").textContent = Math.round(logo.placement.roty || 0) + "°";
       el("sel-edge").value = logo.placement.contract + "," + logo.placement.feather;
     }
     renderAll();
@@ -225,6 +254,21 @@ const Placement = (() => {
       selected.placement.rotation = 0;
       el("sel-rotation").value = 0;
       el("sel-rotation-label").textContent = "0°";
+      renderAll();
+      Persist.saveSoon();
+    });
+    el("sel-roty").addEventListener("input", () => {
+      if (!selected) return;
+      selected.placement.roty = +el("sel-roty").value;
+      el("sel-roty-label").textContent = selected.placement.roty + "°";
+      renderAll();
+      Persist.saveSoon();
+    });
+    el("sel-roty").addEventListener("dblclick", () => {
+      if (!selected) return;
+      selected.placement.roty = 0;
+      el("sel-roty").value = 0;
+      el("sel-roty-label").textContent = "0°";
       renderAll();
       Persist.saveSoon();
     });
