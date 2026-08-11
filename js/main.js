@@ -880,11 +880,23 @@ const App = { state: {}, refreshLogoList: null };
       gen.height = img.naturalHeight;
       gen.getContext("2d").drawImage(img, 0, 0);
     } else {
-      gen.width = view.source.width;
-      gen.height = view.source.height;
-      const ctx = gen.getContext("2d");
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, gen.width, gen.height);
+      // Recaler sur les dimensions de la source SEULEMENT si le ratio correspond :
+      // sinon on écraserait l'image (mannequin étiré). En cas d'écart (ex. plein
+      // pied demandé depuis une photo plus serrée), on garde le format natif —
+      // le placement des logos sait déjà recentrer une proposition hors cadre.
+      const srcRatio = view.source.width / view.source.height;
+      const genRatio = img.naturalWidth / img.naturalHeight;
+      if (Math.abs(genRatio - srcRatio) / srcRatio < 0.02) {
+        gen.width = view.source.width;
+        gen.height = view.source.height;
+        const ctx = gen.getContext("2d");
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, gen.width, gen.height);
+      } else {
+        gen.width = img.naturalWidth;
+        gen.height = img.naturalHeight;
+        gen.getContext("2d").drawImage(img, 0, 0);
+      }
     }
     view.gen = gen;
     view.exported = false;
