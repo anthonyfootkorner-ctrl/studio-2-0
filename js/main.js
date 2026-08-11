@@ -860,28 +860,44 @@ const App = { state: {}, refreshLogoList: null };
       return a[a.length >> 1];
     };
     const br = med(0), bg = med(1), bb = med(2);
-    const TOL = 110; // large : le grain d'une table en bois varie beaucoup
+    const TOL = 100;
+    // Le remplissage ne franchit pas les frontières nettes : un vêtement clair
+    // posé sur une table claire reste protégé par le contour/l'ombre de son bord.
+    const STEP = 24;
     const near = p => {
       const i = p * 4;
       return Math.abs(d[i] - br) + Math.abs(d[i + 1] - bg) + Math.abs(d[i + 2] - bb) < TOL;
     };
+    const stepOk = (a, b) => {
+      const i = a * 4, j = b * 4;
+      return Math.abs(d[i] - d[j]) + Math.abs(d[i + 1] - d[j + 1]) + Math.abs(d[i + 2] - d[j + 2]) < STEP;
+    };
     const seen = new Uint8Array(W * H);
     const queue = new Int32Array(W * H);
     let head = 0, tail = 0;
-    const push = p => { if (!seen[p] && near(p)) { seen[p] = 1; queue[tail++] = p; } };
-    for (let x = 0; x < W; x++) { push(x); push((H - 1) * W + x); }
-    for (let y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); }
+    const seed = p => { if (!seen[p] && near(p)) { seen[p] = 1; queue[tail++] = p; } };
+    const grow = (from, p) => { if (!seen[p] && near(p) && stepOk(from, p)) { seen[p] = 1; queue[tail++] = p; } };
+    for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+    for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
     while (head < tail) {
       const p = queue[head++];
       const x = p % W, y = (p / W) | 0;
-      if (x > 0) push(p - 1);
-      if (x < W - 1) push(p + 1);
-      if (y > 0) push(p - W);
-      if (y < H - 1) push(p + W);
+      if (x > 0) grow(p, p - 1);
+      if (x < W - 1) grow(p, p + 1);
+      if (y > 0) grow(p, p - W);
+      if (y < H - 1) grow(p, p + W);
     }
     const share = tail / (W * H);
     // Fond non identifiable (produit clair sur fond clair, décor complexe) : ne rien toucher.
     if (share < 0.2 || share > 0.92) return canvas;
+    // Si le remplissage a atteint le cœur de l'image (là où vit le produit),
+    // il a probablement mangé le vêtement : on n'y touche pas.
+    let central = 0;
+    const bx0 = (W * 0.3) | 0, bx1 = (W * 0.7) | 0, by0 = (H * 0.3) | 0, by1 = (H * 0.7) | 0;
+    for (let y = by0; y < by1; y++) {
+      for (let x = bx0; x < bx1; x++) if (seen[y * W + x]) central++;
+    }
+    if (central / ((bx1 - bx0) * (by1 - by0)) > 0.25) return canvas;
     for (let p = 0; p < W * H; p++) {
       if (seen[p]) { const i = p * 4; d[i] = 245; d[i + 1] = 245; d[i + 2] = 245; }
     }
