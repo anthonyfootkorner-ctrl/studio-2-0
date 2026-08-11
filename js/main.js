@@ -419,6 +419,14 @@ const App = { state: {}, refreshLogoList: null };
     el("qs3-next").addEventListener("click", () => goQ(4));
   }
 
+  function wirePoseCards() {
+    $$("#pose-cards .pose-card").forEach(b => b.addEventListener("click", () => {
+      $$("#pose-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
+      el("m-pose").value = b.dataset.pose;
+      Persist.saveSoon();
+    }));
+  }
+
   function wirePresets() {
     el("model-preset").addEventListener("change", () => {
       const key = el("model-preset").value;
@@ -1384,6 +1392,7 @@ const App = { state: {}, refreshLogoList: null };
     wireAuth();
     wireProject();
     wirePresets();
+    wirePoseCards();
     wireQuestionnaire();
     wireSource();
     wireInventory();
