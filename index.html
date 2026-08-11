@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081024">
+<link rel="stylesheet" href="styles.css?v=2026081025">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v24</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v25</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -147,38 +147,14 @@
         <form id="form-model">
           <label class="pose-label">Pose du mannequin</label>
           <div id="pose-cards" class="pose-cards">
-            <button type="button" class="pose-card active" data-pose="" title="Pose e-commerce naturelle, au choix de l'IA">
-              <svg viewBox="0 0 60 80"><text x="30" y="46" text-anchor="middle" font-size="30" fill="currentColor">✳</text></svg>
-              <span>Auto</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="Debout, naturelle, bras relâchés le long du corps">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V47"/><path d="M30 26 L19 44 M30 26 L41 44"/><path d="M30 47 L23 72 M30 47 L37 72"/></svg>
-              <span>Debout</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="Debout en léger trois-quarts, épaules tournées, regard vers l'objectif">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="33" cy="13" r="6.5"/><path d="M31 20 L29 47"/><path d="M31 25 L20 40 M31 25 L44 38"/><path d="M29 47 L22 72 M29 47 L35 72"/></svg>
-              <span>3/4</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="Debout, une main dans la poche, attitude détendue">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V47"/><path d="M30 26 L18 42 M30 26 L40 36 L36 45"/><path d="M30 47 L23 72 M30 47 L37 72"/></svg>
-              <span>Main poche</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="Debout, bras croisés sur la poitrine, assuré">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V47"/><path d="M20 30 L40 38 M40 30 L20 38"/><path d="M30 47 L23 72 M30 47 L37 72"/></svg>
-              <span>Bras croisés</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="En marche naturelle vers l'objectif">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V45"/><path d="M30 26 L18 38 M30 26 L43 34"/><path d="M30 45 L18 70 M30 45 L42 68"/></svg>
-              <span>En marche</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="De dos, tête droite, épaules détendues">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V47"/><path d="M30 26 L20 45 M30 26 L40 45"/><path d="M30 47 L24 72 M30 47 L36 72"/><path d="M22 24 Q30 29 38 24" stroke-width="2"/></svg>
-              <span>De dos</span>
-            </button>
-            <button type="button" class="pose-card" data-pose="En train d'ajuster le col ou la manche du vêtement, geste naturel">
-              <svg viewBox="0 0 60 80" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="30" cy="13" r="6.5"/><path d="M30 20 V47"/><path d="M30 26 L19 43 M30 27 L40 30 L34 23"/><path d="M30 47 L23 72 M30 47 L37 72"/></svg>
-              <span>Ajuste</span>
-            </button>
+            <button type="button" class="pose-card active" data-pose="" title="Pose e-commerce naturelle, au choix de l'IA"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L21 32 L20 42"/><path d="M36 20 L39 32 L40 42"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L34 60 L35 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/><text x="47" y="14" font-size="14" fill="currentColor" stroke="none">✳</text></svg><span>Auto</span></button>
+            <button type="button" class="pose-card" data-pose="Debout, naturelle, bras relâchés le long du corps"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L21 32 L20 42"/><path d="M36 20 L39 32 L40 42"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L34 60 L35 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>Debout</span></button>
+            <button type="button" class="pose-card" data-pose="Debout en léger trois-quarts, épaules tournées, regard vers l'objectif"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M25 21 L20 33 L21 43"/><path d="M38 20 L43 31 L40 41"/><path d="M26 46 L24 60 L22 74"/><path d="M32 46 L34 60 L34 74"/></g><circle cx="33" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="31" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="29" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>3/4</span></button>
+            <button type="button" class="pose-card" data-pose="Debout, une main dans la poche, attitude détendue"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L20 32 L20 42"/><path d="M36 20 L42 29 L35 41"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L35 60 L37 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>Main poche</span></button>
+            <button type="button" class="pose-card" data-pose="Debout, bras croisés sur la poitrine, assuré"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L20 30 L35 28"/><path d="M36 20 L40 30 L25 28"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L34 60 L35 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>Bras croisés</span></button>
+            <button type="button" class="pose-card" data-pose="En marche naturelle vers l'objectif"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L23 32 L19 41"/><path d="M36 20 L40 30 L44 38"/><path d="M27 46 L22 59 L17 72"/><path d="M33 46 L37 58 L43 69"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>En marche</span></button>
+            <button type="button" class="pose-card" data-pose="De dos, tête droite, épaules détendues"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L21 32 L20 42"/><path d="M36 20 L39 32 L40 42"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L34 60 L35 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/><path d="M26 22 Q30 26 34 22" stroke="var(--panel, #171716)" stroke-width="2.4" fill="none"/><path d="M30 18 V31" stroke="var(--panel, #171716)" stroke-width="2.4"/></svg><span>De dos</span></button>
+            <button type="button" class="pose-card" data-pose="En train d'ajuster le col ou la manche du vêtement, geste naturel"><svg viewBox="0 0 60 84" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="5.2"><path d="M24 20 L20 32 L20 42"/><path d="M36 20 L43 26 L34 16"/><path d="M27 46 L26 60 L25 74"/><path d="M33 46 L34 60 L35 74"/></g><circle cx="30" cy="10" r="6" fill="currentColor" stroke="none"/><ellipse cx="30" cy="25" rx="7.5" ry="8.5" fill="currentColor" stroke="none"/><ellipse cx="30" cy="43" rx="6" ry="5" fill="currentColor" stroke="none"/></svg><span>Ajuste</span></button>
           </div>
           <label>Profil type (remplit les champs en un clic)
             <select id="model-preset">
@@ -433,14 +409,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081024"></script>
-<script src="vendor/libheif-bundle.js?v=2026081024"></script>
-<script src="js/config.js?v=2026081024"></script>
-<script src="js/masking.js?v=2026081024"></script>
-<script src="js/persist.js?v=2026081024"></script>
-<script src="js/admin.js?v=2026081024"></script>
-<script src="js/placement.js?v=2026081024"></script>
-<script src="js/colorfix.js?v=2026081024"></script>
-<script src="js/main.js?v=2026081024"></script>
+<script src="vendor/supabase.min.js?v=2026081025"></script>
+<script src="vendor/libheif-bundle.js?v=2026081025"></script>
+<script src="js/config.js?v=2026081025"></script>
+<script src="js/masking.js?v=2026081025"></script>
+<script src="js/persist.js?v=2026081025"></script>
+<script src="js/admin.js?v=2026081025"></script>
+<script src="js/placement.js?v=2026081025"></script>
+<script src="js/colorfix.js?v=2026081025"></script>
+<script src="js/main.js?v=2026081025"></script>
 </body>
 </html>
