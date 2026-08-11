@@ -427,6 +427,14 @@ const App = { state: {}, refreshLogoList: null };
     }));
   }
 
+  function wireProfileCards() {
+    $$("#profile-cards .pose-card").forEach(b => b.addEventListener("click", () => {
+      $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
+      el("model-preset").value = b.dataset.preset;
+      el("model-preset").dispatchEvent(new Event("change"));
+    }));
+  }
+
   function wirePresets() {
     el("model-preset").addEventListener("change", () => {
       const key = el("model-preset").value;
@@ -1392,6 +1400,7 @@ const App = { state: {}, refreshLogoList: null };
     wireAuth();
     wireProject();
     wirePresets();
+    wireProfileCards();
     wirePoseCards();
     wireQuestionnaire();
     wireSource();

@@ -1035,3 +1035,15 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
   .pose-card.active:hover { color: var(--accent); border-color: var(--accent); }
 }
 @media (max-width: 560px) { .pose-cards { grid-template-columns: repeat(3, 1fr); } }
+
+
+/* Poses et profils en photos */
+.pose-card.photo { padding: 0.35rem 0.35rem 0.4rem; }
+.pose-card.photo img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+.pose-cards.profiles { grid-template-columns: repeat(4, 1fr); max-width: 560px; margin-left: auto; margin-right: auto; }
