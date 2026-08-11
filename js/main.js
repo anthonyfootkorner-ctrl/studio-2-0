@@ -718,10 +718,32 @@ const App = { state: {}, refreshLogoList: null };
     return null;
   }
 
+  // Photo du mannequin prédéfini choisi (galerie de l'étape 4), utilisée comme
+  // référence d'identité dès la PREMIÈRE génération : le résultat montre bien
+  // la personne présentée dans l'interface, pas seulement quelqu'un qui lui ressemble.
+  const presetRefCache = {};
+  function presetRefCanvas() {
+    const key = App.state.presetKey;
+    if (!key || key === "perso" || !MODEL_PRESETS[key]) return Promise.resolve(null);
+    if (presetRefCache[key]) return Promise.resolve(presetRefCache[key]);
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext("2d").drawImage(img, 0, 0);
+        presetRefCache[key] = c;
+        resolve(c);
+      };
+      img.onerror = () => resolve(null);
+      img.src = `assets/pose-${key}-debout.jpg`;
+    });
+  }
+
   async function generateView(view, extraNote) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Session expirée, reconnecte-toi.");
-    const ref = identityRef(view);
+    const ref = identityRef(view) || await presetRefCanvas();
     const creation = isCreationProject();
     // Ordre des images : [fond studio vierge en création], source, [identité],
     // pantalons, autres photos produit (plafond de 5 images).
