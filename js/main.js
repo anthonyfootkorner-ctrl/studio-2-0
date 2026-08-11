@@ -838,9 +838,11 @@ const App = { state: {}, refreshLogoList: null };
     return { mimeType: "image/jpeg", data: url.split(",")[1] };
   }
 
-  // Neutralise le décor d'une photo produit à plat AVANT l'envoi : le fond
-  // raccordé aux bords (table, sol, pièce) devient studio neutre — le modèle
-  // ne peut plus s'ancrer sur la scène de la photo de référence.
+  // Prépare une photo produit avant l'envoi : recadrage serré sur le vêtement
+  // (le décor — bureau, table, sol — disparaît presque entièrement du cadre),
+  // puis neutralisation du fond restant. Le modèle ne peut plus s'ancrer sur la
+  // scène de la photo. Les couleurs du vêtement ne sont JAMAIS modifiées ; en
+  // cas de doute la fonction rend la photo telle quelle.
   function neutralizeDecor(canvas) {
     const maxDim = 1024;
     const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
@@ -850,59 +852,104 @@ const App = { state: {}, refreshLogoList: null };
     const ctx = c.getContext("2d");
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(canvas, 0, 0, W, H);
-    const id = ctx.getImageData(0, 0, W, H);
-    const d = id.data;
-    const samples = [];
-    for (let x = 0; x < W; x += 3) { samples.push(x, (H - 1) * W + x); }
-    for (let y = 0; y < H; y += 3) { samples.push(y * W, y * W + W - 1); }
-    const med = ch => {
-      const a = samples.map(p => d[p * 4 + ch]).sort((u, v) => u - v);
-      return a[a.length >> 1];
+    const d = ctx.getImageData(0, 0, W, H).data;
+
+    // Couleurs de fond : médiane de chaque coin (murs, moquette, table peuvent différer).
+    const PATCH = Math.max(16, (Math.min(W, H) * 0.06) | 0);
+    const cornerMed = (x0, y0) => {
+      const r = [], g = [], b = [];
+      for (let y = y0; y < y0 + PATCH; y++) {
+        for (let x = x0; x < x0 + PATCH; x++) {
+          const i = (y * W + x) * 4;
+          r.push(d[i]); g.push(d[i + 1]); b.push(d[i + 2]);
+        }
+      }
+      const m = a => a.sort((u, v) => u - v)[a.length >> 1];
+      return [m(r), m(g), m(b)];
     };
-    const br = med(0), bg = med(1), bb = med(2);
-    const TOL = 100;
-    // Le remplissage ne franchit pas les frontières nettes : un vêtement clair
-    // posé sur une table claire reste protégé par le contour/l'ombre de son bord.
-    const STEP = 24;
-    const near = p => {
+    const bgs = [
+      cornerMed(0, 0), cornerMed(W - PATCH, 0),
+      cornerMed(0, H - PATCH), cornerMed(W - PATCH, H - PATCH),
+    ];
+    const TOL = 95;
+    const isBg = p => {
       const i = p * 4;
-      return Math.abs(d[i] - br) + Math.abs(d[i + 1] - bg) + Math.abs(d[i + 2] - bb) < TOL;
+      for (const [r, g, b] of bgs) {
+        if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b) < TOL) return true;
+      }
+      return false;
     };
+
+    // Boîte du vêtement : lignes/colonnes contenant assez de pixels non-fond.
+    const rowHits = new Int32Array(H), colHits = new Int32Array(W);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!isBg(y * W + x)) { rowHits[y]++; colHits[x]++; }
+      }
+    }
+    const firstIdx = (hits, len, thr) => { for (let i = 0; i < len; i++) if (hits[i] > thr) return i; return -1; };
+    const lastIdx = (hits, len, thr) => { for (let i = len - 1; i >= 0; i--) if (hits[i] > thr) return i; return -1; };
+    let y0 = firstIdx(rowHits, H, W * 0.02), y1 = lastIdx(rowHits, H, W * 0.02);
+    let x0 = firstIdx(colHits, W, H * 0.02), x1 = lastIdx(colHits, W, H * 0.02);
+    let cw = W, chh = H, ox = 0, oy = 0;
+    let out = c, octx = ctx;
+    if (y0 >= 0 && x0 >= 0) {
+      const mx = ((x1 - x0) * 0.04) | 0, my = ((y1 - y0) * 0.04) | 0;
+      x0 = Math.max(0, x0 - mx); x1 = Math.min(W - 1, x1 + mx);
+      y0 = Math.max(0, y0 - my); y1 = Math.min(H - 1, y1 + my);
+      const area = (x1 - x0) * (y1 - y0) / (W * H);
+      if (area > 0.10 && area < 0.96) {
+        cw = x1 - x0 + 1; chh = y1 - y0 + 1; ox = x0; oy = y0;
+        out = document.createElement("canvas");
+        out.width = cw; out.height = chh;
+        octx = out.getContext("2d");
+        octx.drawImage(c, x0, y0, cw, chh, 0, 0, cw, chh);
+      }
+    }
+
+    // Neutralisation du fond restant dans le cadre recadré.
+    const id2 = octx.getImageData(0, 0, cw, chh);
+    const d2 = id2.data;
+    const isBg2 = p => {
+      const i = p * 4;
+      for (const [r, g, b] of bgs) {
+        if (Math.abs(d2[i] - r) + Math.abs(d2[i + 1] - g) + Math.abs(d2[i + 2] - b) < TOL) return true;
+      }
+      return false;
+    };
+    const STEP = 24;
     const stepOk = (a, b) => {
       const i = a * 4, j = b * 4;
-      return Math.abs(d[i] - d[j]) + Math.abs(d[i + 1] - d[j + 1]) + Math.abs(d[i + 2] - d[j + 2]) < STEP;
+      return Math.abs(d2[i] - d2[j]) + Math.abs(d2[i + 1] - d2[j + 1]) + Math.abs(d2[i + 2] - d2[j + 2]) < STEP;
     };
-    const seen = new Uint8Array(W * H);
-    const queue = new Int32Array(W * H);
+    const seen = new Uint8Array(cw * chh);
+    const queue = new Int32Array(cw * chh);
     let head = 0, tail = 0;
-    const seed = p => { if (!seen[p] && near(p)) { seen[p] = 1; queue[tail++] = p; } };
-    const grow = (from, p) => { if (!seen[p] && near(p) && stepOk(from, p)) { seen[p] = 1; queue[tail++] = p; } };
-    for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
-    for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
+    const seed = p => { if (!seen[p] && isBg2(p)) { seen[p] = 1; queue[tail++] = p; } };
+    const grow = (from, p) => { if (!seen[p] && isBg2(p) && stepOk(from, p)) { seen[p] = 1; queue[tail++] = p; } };
+    for (let x = 0; x < cw; x++) { seed(x); seed((chh - 1) * cw + x); }
+    for (let y = 0; y < chh; y++) { seed(y * cw); seed(y * cw + cw - 1); }
     while (head < tail) {
       const p = queue[head++];
-      const x = p % W, y = (p / W) | 0;
+      const x = p % cw, y = (p / cw) | 0;
       if (x > 0) grow(p, p - 1);
-      if (x < W - 1) grow(p, p + 1);
-      if (y > 0) grow(p, p - W);
-      if (y < H - 1) grow(p, p + W);
+      if (x < cw - 1) grow(p, p + 1);
+      if (y > 0) grow(p, p - cw);
+      if (y < chh - 1) grow(p, p + cw);
     }
-    const share = tail / (W * H);
-    // Fond non identifiable (produit clair sur fond clair, décor complexe) : ne rien toucher.
-    if (share < 0.2 || share > 0.92) return canvas;
-    // Si le remplissage a atteint le cœur de l'image (là où vit le produit),
-    // il a probablement mangé le vêtement : on n'y touche pas.
+    // Le cœur de l'image touché = vêtement mangé : on garde le recadrage, pas la neutralisation.
     let central = 0;
-    const bx0 = (W * 0.3) | 0, bx1 = (W * 0.7) | 0, by0 = (H * 0.3) | 0, by1 = (H * 0.7) | 0;
+    const bx0 = (cw * 0.3) | 0, bx1 = (cw * 0.7) | 0, by0 = (chh * 0.3) | 0, by1 = (chh * 0.7) | 0;
     for (let y = by0; y < by1; y++) {
-      for (let x = bx0; x < bx1; x++) if (seen[y * W + x]) central++;
+      for (let x = bx0; x < bx1; x++) if (seen[y * cw + x]) central++;
     }
-    if (central / ((bx1 - bx0) * (by1 - by0)) > 0.25) return canvas;
-    for (let p = 0; p < W * H; p++) {
-      if (seen[p]) { const i = p * 4; d[i] = 245; d[i + 1] = 245; d[i + 2] = 245; }
+    if (central / ((bx1 - bx0) * (by1 - by0)) <= 0.25) {
+      for (let p = 0; p < cw * chh; p++) {
+        if (seen[p]) { const i = p * 4; d2[i] = 245; d2[i + 1] = 245; d2[i + 2] = 245; }
+      }
+      octx.putImageData(id2, 0, 0);
     }
-    ctx.putImageData(id, 0, 0);
-    return c;
+    return out;
   }
 
   function isCreationProject() {
