@@ -342,11 +342,55 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   const MODEL_PRESETS = {
-    h20: { genre: "Homme", origine: "", age: "Environ 20 ans", morpho: "Sportif", cheveux: "Bruns courts et texturés", barbe: "Sans barbe", expression: "Expression calme" },
-    h30: { genre: "Homme", origine: "", age: "Environ 30 ans", morpho: "Athlétique", cheveux: "Bruns courts", barbe: "Barbe courte soignée", expression: "Expression confiante" },
-    f25: { genre: "Femme", origine: "", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Châtains attachés en queue de cheval", barbe: "", expression: "Expression naturelle" },
-    ado: { genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
+    h20: { label: "Homme ~20", genre: "Homme", origine: "", age: "Environ 20 ans", morpho: "Sportif", cheveux: "Bruns courts et texturés", barbe: "Sans barbe", expression: "Expression calme" },
+    h30: { label: "Homme ~30", genre: "Homme", origine: "", age: "Environ 30 ans", morpho: "Athlétique", cheveux: "Bruns courts", barbe: "Barbe courte soignée", expression: "Expression confiante" },
+    hnoir: { label: "Homme ~25", genre: "Homme", origine: "Noir", age: "Environ 25 ans", morpho: "Athlétique", cheveux: "Très courts", barbe: "Barbe légère bien taillée", expression: "Expression confiante" },
+    hmag: { label: "Homme ~28", genre: "Homme", origine: "Nord-africain", age: "Environ 28 ans", morpho: "Sportif", cheveux: "Noirs courts", barbe: "Barbe courte", expression: "Expression assurée" },
+    f25: { label: "Femme ~25", genre: "Femme", origine: "", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Châtains attachés en queue de cheval", barbe: "", expression: "Expression naturelle" },
+    fnoire: { label: "Femme ~25", genre: "Femme", origine: "Noire", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Bouclés attachés", barbe: "", expression: "Expression naturelle et souriante" },
+    fasie: { label: "Femme ~25", genre: "Femme", origine: "Asiatique", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Noirs mi-longs attachés", barbe: "", expression: "Expression douce" },
+    ado: { label: "Ado ~15", genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
   };
+
+  const POSE_DEFS = [
+    { key: "auto", label: "Auto", pose: "" },
+    { key: "debout", label: "Debout", pose: "Debout, naturelle, bras relâchés le long du corps" },
+    { key: "troisquarts", label: "3/4", pose: "Debout en léger trois-quarts, épaules tournées, regard vers l'objectif" },
+    { key: "poche", label: "Main poche", pose: "Debout, une main dans la poche, attitude détendue" },
+    { key: "croises", label: "Bras croisés", pose: "Debout, bras croisés sur la poitrine, assuré" },
+    { key: "marche", label: "En marche", pose: "En marche naturelle vers l'objectif" },
+    { key: "dos", label: "De dos", pose: "De dos, tête droite, épaules détendues" },
+    { key: "ajuste", label: "Ajuste", pose: "En train d'ajuster le col ou la manche du vêtement, geste naturel" },
+  ];
+
+  // Construit la grille des poses AVEC les photos du mannequin choisi
+  function buildPoseGrid(presetKey) {
+    const grid = el("pose-cards");
+    grid.innerHTML = "";
+    App.state.presetKey = presetKey;
+    App.state.poseLabel = "Auto";
+    el("m-pose").value = "";
+    for (const p of POSE_DEFS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pose-card photo" + (p.key === "auto" ? " active" : "");
+      b.dataset.pose = p.pose;
+      const img = document.createElement("img");
+      img.src = `assets/pose-${presetKey}-${p.key}.jpg`;
+      img.loading = "lazy";
+      const span = document.createElement("span");
+      span.textContent = p.label;
+      b.append(img, span);
+      b.addEventListener("click", () => {
+        grid.querySelectorAll(".pose-card").forEach(x => x.classList.toggle("active", x === b));
+        el("m-pose").value = p.pose;
+        App.state.poseLabel = p.label;
+        renderRecap();
+        Persist.saveSoon();
+      });
+      grid.appendChild(b);
+    }
+  }
 
   // ══════════ Questionnaire de l'étape 1 ══════════
 
@@ -354,9 +398,12 @@ const App = { state: {}, refreshLogoList: null };
 
   function goQ(n) {
     curQ = n;
-    for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
+    for (let i = 1; i <= 5; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
     if (n === 2) syncFramingCards();
-    if (n === 4) renderRecap();
+    if (n === 5) {
+      if (!el("pose-cards").children.length) buildPoseGrid(App.state.presetKey || "h20");
+      renderRecap();
+    }
     updateQNav();
   }
 
@@ -377,11 +424,14 @@ const App = { state: {}, refreshLogoList: null };
     const refs = views.filter(v => v.role === "ref").length;
     const pants = views.filter(v => v.role === "pant").length;
     const libs = (App.state.logoLibrary || []).length;
+    const preset = MODEL_PRESETS[App.state.presetKey];
     const parts = [
       "Type : " + (TYPE_LABELS[type] || "non choisi"),
       "Cadrage : " + (FRAMING_LABELS[el("project-framing").value] || "?"),
       `${vues} vue${vues > 1 ? "s" : ""} à générer`,
     ];
+    if (preset) parts.push("Mannequin : " + preset.label + (preset.origine ? " (" + preset.origine.toLowerCase() + ")" : ""));
+    if (App.state.poseLabel) parts.push("Pose : " + App.state.poseLabel);
     if (refs) parts.push(`${refs} référence${refs > 1 ? "s" : ""}`);
     if (pants) parts.push(`${pants} pantalon${pants > 1 ? "s" : ""}`);
     if (libs) parts.push(`${libs} logo${libs > 1 ? "s" : ""} en bibliothèque`);
@@ -392,7 +442,7 @@ const App = { state: {}, refreshLogoList: null };
   function syncQuestionnaire() {
     const typeOk = !!document.querySelector("#project-type .type-card.active");
     const hasVues = (App.state.views || []).filter(isVue).length > 0;
-    goQ(!typeOk ? 1 : hasVues ? 4 : 3);
+    goQ(!typeOk ? 1 : !hasVues ? 3 : App.state.presetKey ? 5 : 4);
   }
 
   function syncFramingCards() {
@@ -419,19 +469,13 @@ const App = { state: {}, refreshLogoList: null };
     el("qs3-next").addEventListener("click", () => goQ(4));
   }
 
-  function wirePoseCards() {
-    $$("#pose-cards .pose-card").forEach(b => b.addEventListener("click", () => {
-      $$("#pose-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
-      el("m-pose").value = b.dataset.pose;
-      Persist.saveSoon();
-    }));
-  }
-
   function wireProfileCards() {
     $$("#profile-cards .pose-card").forEach(b => b.addEventListener("click", () => {
       $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
       el("model-preset").value = b.dataset.preset;
       el("model-preset").dispatchEvent(new Event("change"));
+      buildPoseGrid(b.dataset.preset);
+      if (curQ === 4) setTimeout(() => goQ(5), 220);
     }));
   }
 
@@ -1401,7 +1445,6 @@ const App = { state: {}, refreshLogoList: null };
     wireProject();
     wirePresets();
     wireProfileCards();
-    wirePoseCards();
     wireQuestionnaire();
     wireSource();
     wireInventory();

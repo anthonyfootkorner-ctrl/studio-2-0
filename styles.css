@@ -1047,3 +1047,7 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
   display: block;
 }
 .pose-cards.profiles { grid-template-columns: repeat(4, 1fr); max-width: 560px; margin-left: auto; margin-right: auto; }
+
+
+/* 8 profils en 2 rangées de 4 */
+.pose-cards.profiles-8 { grid-template-columns: repeat(4, 1fr); max-width: 640px; margin-left: auto; margin-right: auto; }

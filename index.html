@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081026">
+<link rel="stylesheet" href="styles.css?v=2026081027">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v26</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v27</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -63,7 +63,7 @@
     <div class="qwrap">
 
       <div class="qstep" id="qs-1">
-        <p class="qcount">Question 1 sur 4</p>
+        <p class="qcount">Question 1 sur 5</p>
         <h2 class="qtitle">Quel type de <em>photo</em> as-tu&nbsp;?</h2>
         
         <div id="project-type" class="photo-cards">
@@ -86,7 +86,7 @@
       </div>
 
       <div class="qstep hidden" id="qs-2">
-        <p class="qcount">Question 2 sur 4</p>
+        <p class="qcount">Question 2 sur 5</p>
         <h2 class="qtitle">Quel <em>cadrage</em> pour la photo finale&nbsp;?</h2>
         
         <select id="project-framing" class="hidden" aria-hidden="true">
@@ -124,7 +124,7 @@
       </div>
 
       <div class="qstep hidden" id="qs-3">
-        <p class="qcount">Question 3 sur 4</p>
+        <p class="qcount">Question 3 sur 5</p>
         <h2 class="qtitle">Ajoute les <em>photos</em> du produit</h2>
         
         <div id="drop-source" class="dropzone">
@@ -141,36 +141,42 @@
       </div>
 
       <div class="qstep hidden" id="qs-4">
-        <p class="qcount">Question 4 sur 4</p>
-        <h2 class="qtitle">Décris ton <em>mannequin</em></h2>
-        
+        <p class="qcount">Question 4 sur 5</p>
+        <h2 class="qtitle">Choisis ton <em>mannequin</em></h2>
+        <select id="model-preset" class="hidden" aria-hidden="true">
+          <option value="">— Choisir un profil —</option>
+          <option value="h20">Homme ~20</option>
+          <option value="h30">Homme ~30</option>
+          <option value="f25">Femme ~25</option>
+          <option value="ado">Ado ~15</option>
+          <option value="hnoir">Homme ~25</option>
+          <option value="fnoire">Femme ~25</option>
+          <option value="hmag">Homme ~28</option>
+          <option value="fasie">Femme ~25</option>
+          <option value="perso">Personnalisé…</option>
+        </select>
+        <div id="profile-cards" class="pose-cards profiles-8">
+          <button type="button" class="pose-card photo" data-preset="h20"><img src="assets/profil-h20.jpg" alt="" loading="lazy"><span>Homme ~20</span></button>
+          <button type="button" class="pose-card photo" data-preset="h30"><img src="assets/profil-h30.jpg" alt="" loading="lazy"><span>Homme ~30</span></button>
+          <button type="button" class="pose-card photo" data-preset="hnoir"><img src="assets/profil-hnoir.jpg" alt="" loading="lazy"><span>Homme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="hmag"><img src="assets/profil-hmag.jpg" alt="" loading="lazy"><span>Homme ~28</span></button>
+          <button type="button" class="pose-card photo" data-preset="f25"><img src="assets/profil-f25.jpg" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="fnoire"><img src="assets/profil-fnoire.jpg" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="fasie"><img src="assets/profil-fasie.jpg" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="ado"><img src="assets/profil-ado.jpg" alt="" loading="lazy"><span>Ado ~15</span></button>
+        </div>
+        <p class="hint" style="text-align:center">Un clic choisit le mannequin et affiche ses poses. Pour un profil sur mesure, ouvre « Détails » à l'étape suivante.</p>
+        <div class="qnav">
+          <button class="btn ghost" data-back="3">← Retour</button>
+          <span></span>
+        </div>
+      </div>
+
+      <div class="qstep hidden" id="qs-5">
+        <p class="qcount">Question 5 sur 5</p>
+        <h2 class="qtitle">Choisis sa <em>pose</em></h2>
+        <div id="pose-cards" class="pose-cards"></div>
         <form id="form-model">
-          <label class="pose-label">Pose du mannequin</label>
-          <div id="pose-cards" class="pose-cards">
-            <button type="button" class="pose-card photo active" data-pose="" title="Pose e-commerce naturelle, au choix de l'IA"><img src="assets/pose-auto.jpg" alt="" loading="lazy"><span>Auto</span></button>
-            <button type="button" class="pose-card photo" data-pose="Debout, naturelle, bras relâchés le long du corps"><img src="assets/pose-debout.jpg" alt="" loading="lazy"><span>Debout</span></button>
-            <button type="button" class="pose-card photo" data-pose="Debout en léger trois-quarts, épaules tournées, regard vers l'objectif"><img src="assets/pose-troisquarts.jpg" alt="" loading="lazy"><span>3/4</span></button>
-            <button type="button" class="pose-card photo" data-pose="Debout, une main dans la poche, attitude détendue"><img src="assets/pose-poche.jpg" alt="" loading="lazy"><span>Main poche</span></button>
-            <button type="button" class="pose-card photo" data-pose="Debout, bras croisés sur la poitrine, assuré"><img src="assets/pose-croises.jpg" alt="" loading="lazy"><span>Bras croisés</span></button>
-            <button type="button" class="pose-card photo" data-pose="En marche naturelle vers l'objectif"><img src="assets/pose-marche.jpg" alt="" loading="lazy"><span>En marche</span></button>
-            <button type="button" class="pose-card photo" data-pose="De dos, tête droite, épaules détendues"><img src="assets/pose-dos.jpg" alt="" loading="lazy"><span>De dos</span></button>
-            <button type="button" class="pose-card photo" data-pose="En train d'ajuster le col ou la manche du vêtement, geste naturel"><img src="assets/pose-ajuste.jpg" alt="" loading="lazy"><span>Ajuste</span></button>
-          </div>
-          <label class="pose-label">Profil du mannequin</label>
-          <select id="model-preset" class="hidden" aria-hidden="true">
-            <option value="">— Choisir un profil —</option>
-            <option value="h20">Homme sportif, ~20 ans</option>
-            <option value="h30">Homme athlétique, ~30 ans</option>
-            <option value="f25">Femme sportive, ~25 ans</option>
-            <option value="ado">Adolescent, ~15 ans</option>
-            <option value="perso">Personnalisé…</option>
-          </select>
-          <div id="profile-cards" class="pose-cards profiles">
-            <button type="button" class="pose-card photo" data-preset="h20"><img src="assets/profil-h20.jpg" alt="" loading="lazy"><span>Homme ~20</span></button>
-            <button type="button" class="pose-card photo" data-preset="h30"><img src="assets/profil-h30.jpg" alt="" loading="lazy"><span>Homme ~30</span></button>
-            <button type="button" class="pose-card photo" data-preset="f25"><img src="assets/profil-f25.jpg" alt="" loading="lazy"><span>Femme ~25</span></button>
-            <button type="button" class="pose-card photo" data-preset="ado"><img src="assets/profil-ado.jpg" alt="" loading="lazy"><span>Ado ~15</span></button>
-          </div>
           <details id="model-details">
             <summary>Détails du mannequin (ajuster si besoin)</summary>
           <div class="grid2">
@@ -192,9 +198,10 @@
         <p id="q-recap" class="hint"></p>
         <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
         <div class="qnav">
-          <button class="btn ghost" data-back="3">← Retour</button>
+          <button class="btn ghost" data-back="4">← Retour</button>
         </div>
       </div>
+    </div>
 
     </div>
   </div>
@@ -414,14 +421,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081026"></script>
-<script src="vendor/libheif-bundle.js?v=2026081026"></script>
-<script src="js/config.js?v=2026081026"></script>
-<script src="js/masking.js?v=2026081026"></script>
-<script src="js/persist.js?v=2026081026"></script>
-<script src="js/admin.js?v=2026081026"></script>
-<script src="js/placement.js?v=2026081026"></script>
-<script src="js/colorfix.js?v=2026081026"></script>
-<script src="js/main.js?v=2026081026"></script>
+<script src="vendor/supabase.min.js?v=2026081027"></script>
+<script src="vendor/libheif-bundle.js?v=2026081027"></script>
+<script src="js/config.js?v=2026081027"></script>
+<script src="js/masking.js?v=2026081027"></script>
+<script src="js/persist.js?v=2026081027"></script>
+<script src="js/admin.js?v=2026081027"></script>
+<script src="js/placement.js?v=2026081027"></script>
+<script src="js/colorfix.js?v=2026081027"></script>
+<script src="js/main.js?v=2026081027"></script>
 </body>
 </html>
