@@ -776,7 +776,7 @@ const App = { state: {}, refreshLogoList: null };
       main: (type === "flat" || type === "ghost")
         ? "la référence produit principale (la face du vêtement correspondant à la vue à produire). RÉFÉRENCE UNIQUEMENT : ne pas retoucher, ne pas réutiliser son décor ni sa composition."
         : "la photo produit source à transformer",
-      identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. ATTENTION : cette image sert UNIQUEMENT à l'identité de la personne. NE RECOPIE PAS cette image : pas sa pose, pas son angle de vue, pas son cadrage, pas sa composition. Le résultat correspond à l'image 1 et à la VUE À PRODUIRE, jamais à cette image de référence.",
+      identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. ATTENTION : cette image sert UNIQUEMENT à l'identité de la personne. NE RECOPIE PAS cette image : pas sa pose, pas son angle de vue, pas sa composition — et SURTOUT PAS son cadrage : seul le CADRAGE demandé dans les consignes fait foi, même s'il diffère de cette image. Le résultat correspond à l'image 1 et à la VUE À PRODUIRE, jamais à cette image de référence.",
       pant: "le PANTALON que le mannequin doit porter — reproduis-le à l'identique (couleur, coupe, matière, coutures, détails), correctement ajusté au bas du corps.",
       product: "autre face du MÊME produit (référence vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas la recopier telle quelle.",
       decor: "le DÉCOR à utiliser comme NOUVEAU FOND : remplace tout l'arrière-plan de la photo par ce décor, avec une intégration réaliste (échelle, perspective, lumière, ombres de contact).",
@@ -804,9 +804,9 @@ const App = { state: {}, refreshLogoList: null };
       ? "Format de sortie : portrait vertical 3:4, photo studio e-commerce."
       : "Conserve le format (ratio) de la première image.";
     if (framing === "full") {
-      lines.push("CADRAGE : plein pied — le mannequin est visible en entier, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. " + formatPhrase);
+      lines.push("CADRAGE OBLIGATOIRE : plein pied — le mannequin est visible EN ENTIER, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Rien n'est coupé. " + formatPhrase);
     } else if (framing === "mid") {
-      lines.push("CADRAGE : plan américain e-commerce — cadré de la tête à mi-cuisse, le pantalon bien visible. " + formatPhrase);
+      lines.push("CADRAGE OBLIGATOIRE : plan américain e-commerce — l'image est COUPÉE À MI-CUISSE. La tête est entièrement visible en haut ; le bas de l'image s'arrête à mi-cuisse. Genoux, mollets et pieds sont HORS CHAMP, coupés par le bord de l'image. INTERDIT : mannequin en pied, pieds ou chaussures visibles. " + formatPhrase);
     } else if (framing === "low") {
       lines.push("CADRAGE : photo e-commerce de PANTALON — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres sauf consigne contraire). La tête et le visage sont HORS cadre, coupés au niveau du torse, comme une photo produit de bas. Le pantalon est le sujet principal, visible en entier de la ceinture aux chevilles. En haut, le mannequin porte un t-shirt uni neutre (sauf consigne contraire). " + formatPhrase);
     } else if (creation) {
@@ -982,7 +982,7 @@ const App = { state: {}, refreshLogoList: null };
         resolve(c);
       };
       img.onerror = () => resolve(null);
-      img.src = `assets/pose-${key}-debout.jpg`;
+      img.src = `assets/profil-${key}.jpg?v=${ASSET_V}`;
     });
   }
 
