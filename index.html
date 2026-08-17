@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081137">
+<link rel="stylesheet" href="styles.css?v=2026081138">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,7 +35,7 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v37</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v38</span>
     <nav id="stepper">
       <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
       <span class="step" data-step="2">2 · Génération</span>
@@ -189,14 +189,19 @@
           <option value="perso">Personnalisé…</option>
         </select>
         <div id="profile-cards" class="pose-cards profiles-8">
-          <button type="button" class="pose-card photo" data-preset="h20"><img src="assets/profil-h20.jpg?v=2026081137" alt="" loading="lazy"><span>Homme ~20</span></button>
-          <button type="button" class="pose-card photo" data-preset="h30"><img src="assets/profil-h30.jpg?v=2026081137" alt="" loading="lazy"><span>Homme ~30</span></button>
-          <button type="button" class="pose-card photo" data-preset="hnoir"><img src="assets/profil-hnoir.jpg?v=2026081137" alt="" loading="lazy"><span>Homme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="hmag"><img src="assets/profil-hmag.jpg?v=2026081137" alt="" loading="lazy"><span>Homme ~28</span></button>
-          <button type="button" class="pose-card photo" data-preset="f25"><img src="assets/profil-f25.jpg?v=2026081137" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="fnoire"><img src="assets/profil-fnoire.jpg?v=2026081137" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="fasie"><img src="assets/profil-fasie.jpg?v=2026081137" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="ado"><img src="assets/profil-ado.jpg?v=2026081137" alt="" loading="lazy"><span>Ado ~15</span></button>
+          <button type="button" class="pose-card photo" data-preset="h20"><img src="assets/profil-h20.jpg?v=2026081138" alt="" loading="lazy"><span>Homme ~20</span></button>
+          <button type="button" class="pose-card photo" data-preset="h30"><img src="assets/profil-h30.jpg?v=2026081138" alt="" loading="lazy"><span>Homme ~30</span></button>
+          <button type="button" class="pose-card photo" data-preset="hnoir"><img src="assets/profil-hnoir.jpg?v=2026081138" alt="" loading="lazy"><span>Homme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="hmag"><img src="assets/profil-hmag.jpg?v=2026081138" alt="" loading="lazy"><span>Homme ~28</span></button>
+          <button type="button" class="pose-card photo" data-preset="f25"><img src="assets/profil-f25.jpg?v=2026081138" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="fnoire"><img src="assets/profil-fnoire.jpg?v=2026081138" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="fasie"><img src="assets/profil-fasie.jpg?v=2026081138" alt="" loading="lazy"><span>Femme ~25</span></button>
+          <button type="button" class="pose-card photo" data-preset="ado"><img src="assets/profil-ado.jpg?v=2026081138" alt="" loading="lazy"><span>Ado ~15</span></button>
+          <button type="button" class="pose-card photo" data-preset="sa"><img src="assets/profil-sa.jpg?v=2026081138" alt="" loading="lazy"><span>Homme streetwear</span></button>
+          <button type="button" class="pose-card photo" data-preset="sb"><img src="assets/profil-sb.jpg?v=2026081138" alt="" loading="lazy"><span>Homme urbain</span></button>
+          <button type="button" class="pose-card photo" data-preset="sc"><img src="assets/profil-sc.jpg?v=2026081138" alt="" loading="lazy"><span>Femme rooftop</span></button>
+          <button type="button" class="pose-card photo" data-preset="sd"><img src="assets/profil-sd.jpg?v=2026081138" alt="" loading="lazy"><span>Homme salle</span></button>
+          <button type="button" class="pose-card photo free-card" data-preset="free"><span class="free-ph">✎</span><span>Décrire mon mannequin</span></button>
         </div>
         <p class="hint" style="text-align:center">Un clic choisit le mannequin et affiche ses poses. Pour un profil sur mesure, ouvre « Détails » à l'étape suivante.</p>
         <div class="qnav">
@@ -210,6 +215,12 @@
         <h2 class="qtitle">Choisis sa <em>pose</em></h2>
         <div id="pose-cards" class="pose-cards"></div>
         <form id="form-model">
+          <div id="free-desc-box" class="hidden">
+            <label>Description libre du mannequin
+              <textarea id="m-free" rows="3" placeholder="Ex. : Homme 20-25 ans, peau brune, cheveux courts crépus soignés, silhouette athlétique élancée, regard calme et assuré."></textarea>
+            </label>
+            <p class="hint">Cette description est envoyée telle quelle à l'IA (elle remplace les champs « Détails »). Sans photo de référence, le visage peut varier d'une génération à l'autre : la première photo validée sert ensuite de référence aux autres vues.</p>
+          </div>
           <details id="model-details">
             <summary>Détails du mannequin (ajuster si besoin)</summary>
           <div class="grid2">
@@ -457,14 +468,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081137"></script>
-<script src="vendor/libheif-bundle.js?v=2026081137"></script>
-<script src="js/config.js?v=2026081137"></script>
-<script src="js/masking.js?v=2026081137"></script>
-<script src="js/persist.js?v=2026081137"></script>
-<script src="js/admin.js?v=2026081137"></script>
-<script src="js/placement.js?v=2026081137"></script>
-<script src="js/colorfix.js?v=2026081137"></script>
-<script src="js/main.js?v=2026081137"></script>
+<script src="vendor/supabase.min.js?v=2026081138"></script>
+<script src="vendor/libheif-bundle.js?v=2026081138"></script>
+<script src="js/config.js?v=2026081138"></script>
+<script src="js/masking.js?v=2026081138"></script>
+<script src="js/persist.js?v=2026081138"></script>
+<script src="js/admin.js?v=2026081138"></script>
+<script src="js/placement.js?v=2026081138"></script>
+<script src="js/colorfix.js?v=2026081138"></script>
+<script src="js/main.js?v=2026081138"></script>
 </body>
 </html>

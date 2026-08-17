@@ -78,6 +78,7 @@ const Persist = (() => {
         presetKey: App.state.presetKey || "",
         poseKeys: App.state.poseKeys || [],
         background: App.state.background || "studio",
+        freeDesc: (document.getElementById("m-free") || {}).value || "",
         customBg: await canvasToBlob(App.state.customBg),
         viewSeq: App.state.viewSeq || views.length,
         libSeq: App.state.libSeq || 0,
@@ -147,6 +148,7 @@ const Persist = (() => {
     s.presetKey = data.presetKey || "";
     s.poseKeys = data.poseKeys || [];
     s.background = data.background || "studio";
+    if (document.getElementById("m-free")) document.getElementById("m-free").value = data.freeDesc || "";
     s.customBg = await blobToCanvas(data.customBg);
     document.querySelectorAll("#bg-cards .photo-card").forEach(b =>
       b.classList.toggle("active", b.dataset.bg === s.background));

@@ -352,9 +352,14 @@ const App = { state: {}, refreshLogoList: null };
     fnoire: { label: "Femme ~25", genre: "Femme", origine: "Noire", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Bouclés attachés", barbe: "", expression: "Expression naturelle et souriante" },
     fasie: { label: "Femme ~25", genre: "Femme", origine: "Asiatique", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Noirs mi-longs attachés", barbe: "", expression: "Expression douce" },
     ado: { label: "Ado ~15", genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
+    // Profils streetwear ajoutés le 2026-08-11 (descriptions fournies par l'utilisateur)
+    sa: { label: "Homme streetwear", genre: "Homme", origine: "Peau brune", age: "20-25 ans", morpho: "Athlétique élancé, mâchoire marquée", cheveux: "Courts crépus soignés (petit afro)", barbe: "", expression: "Regard calme et assuré" },
+    sb: { label: "Homme urbain", genre: "Homme", origine: "Teint métis clair", age: "20-25 ans", morpho: "Carrure athlétique, traits fins", cheveux: "Dégradé court sur les côtés", barbe: "", expression: "Allure urbaine confiante" },
+    sc: { label: "Femme rooftop", genre: "Femme", origine: "Peau hâlée / olive", age: "20-25 ans", morpho: "Silhouette sportive, traits marqués", cheveux: "Longs bruns ondulés", barbe: "", expression: "Regard direct" },
+    sd: { label: "Homme salle", genre: "Homme", origine: "Teint métis", age: "20-25 ans", morpho: "Sportif, look performance", cheveux: "Bouclés courts", barbe: "", expression: "Allure sportive posée" },
   };
 
-  const ASSET_V = "2026081134";
+  const ASSET_V = "2026081138";
 
   const POSE_DEFS = [
     { key: "auto", label: "Auto", pose: "" },
@@ -438,8 +443,11 @@ const App = { state: {}, refreshLogoList: null };
       b.className = "pose-card photo" + (active ? " active" : "");
       b.dataset.poseKey = p.key;
       const img = document.createElement("img");
-      img.src = `assets/pose-${presetKey}-${p.key}.jpg?v=${ASSET_V}`;
+      // Mannequin décrit librement : pas de photos de lui — on illustre les poses
+      // avec un mannequin neutre de la galerie, en le signalant.
+      img.src = `assets/pose-${presetKey === "free" ? "h30" : presetKey}-${p.key}.jpg?v=${ASSET_V}`;
       img.loading = "lazy";
+      if (presetKey === "free") img.style.opacity = "0.55";
       const span = document.createElement("span");
       span.textContent = p.label;
       b.append(img, span);
@@ -540,7 +548,9 @@ const App = { state: {}, refreshLogoList: null };
     const refs = views.filter(v => v.role === "ref").length;
     const pants = views.filter(v => v.role === "pant").length;
     const libs = (App.state.logoLibrary || []).length;
-    const preset = MODEL_PRESETS[App.state.presetKey];
+    const preset = App.state.presetKey === "free"
+      ? { label: "décrit librement" + ((el("m-free") && el("m-free").value.trim()) ? " (« " + el("m-free").value.trim().slice(0, 40) + (el("m-free").value.trim().length > 40 ? "…" : "") + " »)" : ""), origine: "" }
+      : MODEL_PRESETS[App.state.presetKey];
     const parts = [
       "Type : " + (TYPE_LABELS[type] || "non choisi"),
       "Cadrage : " + (FRAMING_LABELS[el("project-framing").value] || "?"),
@@ -558,6 +568,8 @@ const App = { state: {}, refreshLogoList: null };
 
   // Reprend le questionnaire au bon endroit (retour à l'étape 1, restauration…)
   function syncQuestionnaire() {
+    el("free-desc-box").classList.toggle("hidden", App.state.presetKey !== "free");
+    $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x.dataset.preset === App.state.presetKey));
     const typeOk = !!document.querySelector("#project-type .type-card.active");
     const hasVues = (App.state.views || []).filter(isVue).length > 0;
     if (App.state.presetKey) syncPoseViews();
@@ -593,11 +605,25 @@ const App = { state: {}, refreshLogoList: null };
   function wireProfileCards() {
     $$("#profile-cards .pose-card").forEach(b => b.addEventListener("click", () => {
       $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
-      el("model-preset").value = b.dataset.preset;
+      const key = b.dataset.preset;
+      if (key === "free") {
+        App.state.presetKey = "free";
+        el("model-preset").value = "perso";
+        buildPoseGrid("free");
+        el("free-desc-box").classList.remove("hidden");
+        el("model-details").open = false;
+        renderRecap();
+        Persist.saveSoon();
+        if (curQ === 5) setTimeout(() => { goQ(6); el("m-free").focus(); }, 220);
+        return;
+      }
+      el("free-desc-box").classList.add("hidden");
+      el("model-preset").value = key;
       el("model-preset").dispatchEvent(new Event("change"));
-      buildPoseGrid(b.dataset.preset);
+      buildPoseGrid(key);
       if (curQ === 5) setTimeout(() => goQ(6), 220);
     }));
+    el("m-free").addEventListener("input", () => { renderRecap(); Persist.saveSoon(); });
   }
 
   function wirePresets() {
@@ -708,13 +734,15 @@ const App = { state: {}, refreshLogoList: null };
   // ══════════ Génération ══════════
 
   function modelDescription() {
+    const free = (el("m-free") && el("m-free").value.trim()) || "";
+    if (App.state.presetKey === "free" && free) return free;
     const v = id => el(id).value.trim();
     return [v("m-genre"), v("m-origine"), v("m-age"), v("m-morpho"),
       v("m-cheveux"), v("m-barbe"), v("m-expression")].filter(Boolean).join(", ");
   }
 
   function isMinor() {
-    const txt = (el("m-age").value + " " + el("m-genre").value).toLowerCase();
+    const txt = (el("m-age").value + " " + el("m-genre").value + " " + ((el("m-free") && el("m-free").value) || "")).toLowerCase();
     if (/(enfant|ado|garçon|fille|junior)/.test(txt)) return true;
     const m = txt.match(/(\d{1,2})\s*ans/);
     return m ? +m[1] < 18 : false;
