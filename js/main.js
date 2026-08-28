@@ -782,6 +782,7 @@ const App = { state: {}, refreshLogoList: null };
       lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
       lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
       lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
+      lines.push("CONSTRUCTION DU VÊTEMENT : analyse les panneaux et zones de couleur, puis place chaque zone à l'endroit anatomiquement correct une fois le vêtement PORTÉ. Piège de la CAPUCHE : sur une photo à plat, la capuche étalée derrière le col peut sembler colorer les épaules — portée, elle pend derrière le cou et dans le dos. NE transforme JAMAIS la capuche en empiècement d'épaules ou de manches : les épaules et les manches gardent EXACTEMENT la couleur de leurs propres panneaux visibles sur la photo. Même vigilance pour un dos d'une autre couleur qui dépasse sur les côtés : il n'apparaît pas sur la face portée.");
       lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
     } else {
       lines.push(withRef
