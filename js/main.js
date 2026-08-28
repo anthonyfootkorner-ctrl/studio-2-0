@@ -322,7 +322,7 @@ const App = { state: {}, refreshLogoList: null };
 
   function updateGenerateButton() {
     if (el("qs3-next")) updateQNav();
-    if (curQ === 6) renderRecap();
+    if (curQ === 4) renderRecap();
     const vues = (App.state.views || []).filter(isVue);
     const todo = vues.filter(v => !v.gen).length;
     const btn = el("btn-generate");
@@ -522,17 +522,18 @@ const App = { state: {}, refreshLogoList: null };
 
   function goQ(n) {
     curQ = n;
-    for (let i = 1; i <= 6; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
-    if (n === 2) syncFramingCards();
-    if (n === 6) {
+    for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
+    if (n === 4) {
       if (!el("pose-cards").children.length) buildPoseGrid(App.state.presetKey || "h20");
+      syncFramingCards();
       renderRecap();
     }
     updateQNav();
   }
 
   function updateQNav() {
-    el("qs3-next").disabled = (App.state.views || []).filter(isVue).length === 0;
+    const typeOk = !!document.querySelector("#project-type .type-card.active");
+    el("qs3-next").disabled = !typeOk || (App.state.views || []).filter(isVue).length === 0;
   }
 
   const FRAMING_LABELS = {
@@ -573,7 +574,7 @@ const App = { state: {}, refreshLogoList: null };
     const typeOk = !!document.querySelector("#project-type .type-card.active");
     const hasVues = (App.state.views || []).filter(isVue).length > 0;
     if (App.state.presetKey) syncPoseViews();
-    goQ(!typeOk ? 1 : !hasVues ? 4 : App.state.presetKey ? 6 : 5);
+    goQ(!hasVues || !typeOk ? 1 : !App.state.presetKey ? 2 : 4);
   }
 
   function syncFramingCards() {
@@ -587,17 +588,15 @@ const App = { state: {}, refreshLogoList: null };
       el("project-framing").value = b.dataset.framing;
       el("project-framing").dispatchEvent(new Event("change"));
       syncFramingCards();
-      // même esprit que la question 1 : choisir fait avancer
-      if (curQ === 2) setTimeout(() => goQ(3), 220);
+      renderRecap();
     }));
   }
 
   function wireQuestionnaire() {
     $$(".qnav [data-back]").forEach(b =>
       b.addEventListener("click", () => goQ(+b.dataset.back)));
-    el("qs2-next").addEventListener("click", () => goQ(3));
     wireFramingCards();
-    el("qs3-next").addEventListener("click", () => goQ(5));
+    el("qs3-next").addEventListener("click", () => goQ(2));
     el("qsbg-next").addEventListener("click", () => goQ(4));
     wireBgCards();
   }
@@ -614,14 +613,14 @@ const App = { state: {}, refreshLogoList: null };
         el("model-details").open = false;
         renderRecap();
         Persist.saveSoon();
-        if (curQ === 5) setTimeout(() => { goQ(6); el("m-free").focus(); }, 220);
+        if (curQ === 2) setTimeout(() => goQ(3), 220);
         return;
       }
       el("free-desc-box").classList.add("hidden");
       el("model-preset").value = key;
       el("model-preset").dispatchEvent(new Event("change"));
       buildPoseGrid(key);
-      if (curQ === 5) setTimeout(() => goQ(6), 220);
+      if (curQ === 2) setTimeout(() => goQ(3), 220);
     }));
     el("m-free").addEventListener("input", () => { renderRecap(); Persist.saveSoon(); });
   }
@@ -652,7 +651,7 @@ const App = { state: {}, refreshLogoList: null };
       updateGenerateButton();
       Persist.saveSoon();
       // Esprit questionnaire : choisir une carte fait avancer (délai = feedback tactile)
-      if (curQ === 1) setTimeout(() => goQ(2), 220);
+      updateQNav();
     }));
     el("project-framing").addEventListener("change", () => {
       App.state.framing = el("project-framing").value;
