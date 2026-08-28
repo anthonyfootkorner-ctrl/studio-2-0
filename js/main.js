@@ -359,7 +359,7 @@ const App = { state: {}, refreshLogoList: null };
     sd: { label: "Homme salle", genre: "Homme", origine: "Teint métis", age: "20-25 ans", morpho: "Sportif, look performance", cheveux: "Bouclés courts", barbe: "", expression: "Allure sportive posée" },
   };
 
-  const ASSET_V = "2026081138";
+  const ASSET_V = "2026081142";
 
   const POSE_DEFS = [
     { key: "auto", label: "Auto", pose: "" },
