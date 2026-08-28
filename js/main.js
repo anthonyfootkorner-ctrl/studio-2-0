@@ -971,13 +971,72 @@ const App = { state: {}, refreshLogoList: null };
     for (let y = by0; y < by1; y++) {
       for (let x = bx0; x < bx1; x++) if (seen[y * cw + x]) central++;
     }
-    if (central / ((bx1 - bx0) * (by1 - by0)) <= 0.25) {
+    const applied = central / ((bx1 - bx0) * (by1 - by0)) <= 0.25;
+    if (applied) {
       for (let p = 0; p < cw * chh; p++) {
         if (seen[p]) { const i = p * 4; d2[i] = 245; d2[i + 1] = 245; d2[i + 2] = 245; }
       }
       octx.putImageData(id2, 0, 0);
     }
+    // Score de propreté : l'anneau extérieur fin (la marge du recadrage, hors
+    // vêtement par construction) doit être débarrassé du décor. S'il y reste des
+    // pixels de scène (grain de plancher, moquette…), le nettoyage local est
+    // jugé insuffisant → détourage IA.
+    const ring = Math.max(6, (Math.min(cw, chh) * 0.02) | 0);
+    let frame = 0, dirty = 0;
+    for (let y = 0; y < chh; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (x >= ring && x < cw - ring && y >= ring && y < chh - ring) continue;
+        frame++;
+        const p = y * cw + x;
+        if (!(applied && seen[p]) && !isBg2(p)) dirty++;
+      }
+    }
+    out.__cleaned = applied && dirty / frame < 0.15;
     return out;
+  }
+
+  // Détourage IA d'une photo de référence trop difficile pour le nettoyage local
+  // (sol texturé, décor chargé) : une génération dédiée (~0,09 €), une seule fois
+  // par photo — le résultat est mis en cache et sauvegardé avec le projet.
+  async function ensureCleanRef(v, session) {
+    const local = neutralizeDecor(v.source);
+    if (local.__cleaned) return local;
+    if (v.cleanRef) return v.cleanRef;
+    showBusy(`Photo « ${v.name} » : décor complexe — détourage IA de la référence (~0,09 €, une seule fois)…`);
+    try {
+      const resp = await fetch(GENERATE_FN_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + session.access_token,
+          "apikey": SUPABASE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: [
+            "TÂCHE : détourage produit e-commerce.",
+            "Reproduis ce vêtement EXACTEMENT — même angle de prise de vue, même position, mêmes plis, mêmes couleurs (teinte, saturation, luminosité STRICTEMENT identiques), mêmes coutures, zips, logos et textes — mais posé sur un FOND UNI #F5F5F5 qui remplace TOUT le décor (table, sol, planches, pièce, objets).",
+            "Cadre serré sur le vêtement avec une petite marge uniforme.",
+            "AUCUNE autre modification : pas d'embellissement, pas de correction des plis, pas de changement de forme ni de matière.",
+          ].join("\n"),
+          images: [canvasToB64(v.source, 1024)],
+          debug: { op: "cleanref", version: document.getElementById("app-version")?.textContent || "?", type: "ref", framing: "-", angle: v.angle || "-", creation: false, n: 1 },
+        }),
+      });
+      const out2 = await resp.json();
+      if (!resp.ok) throw new Error(out2.error || resp.status);
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = `data:${out2.image.mimeType};base64,${out2.image.data}`; });
+      const c2 = document.createElement("canvas");
+      c2.width = img.naturalWidth; c2.height = img.naturalHeight;
+      c2.getContext("2d").drawImage(img, 0, 0);
+      v.cleanRef = c2;
+      Persist.saveSoon();
+      return c2;
+    } catch (e) {
+      console.warn("Détourage IA impossible, envoi de la photo nettoyée localement :", e);
+      return local;
+    }
   }
 
   function isCreationProject() {
@@ -1044,7 +1103,7 @@ const App = { state: {}, refreshLogoList: null };
       images.push(canvasToB64(base, 2048));
       meta.push({ kind: "base" });
     }
-    images.push(canvasToB64(creation ? neutralizeDecor(view.source) : view.source, creation ? 1024 : 1536));
+    images.push(canvasToB64(creation ? await ensureCleanRef(view, session) : view.source, creation ? 1024 : 1536));
     meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
     if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
     if (!creation && bgKey === "custom") {
@@ -1062,7 +1121,8 @@ const App = { state: {}, refreshLogoList: null };
     }).sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
     for (const v of others) {
       if (images.length >= 5) break;
-      images.push(canvasToB64(creation ? neutralizeDecor(v.source) : v.source, 1024));
+      // Les références (pantalon, autres faces) sont nettoyées dans les deux modes.
+      images.push(canvasToB64(await ensureCleanRef(v, session), 1024));
       meta.push({ kind: v.role === "pant" ? "pant" : "product", name: v.name });
     }
     const resp = await fetch(GENERATE_FN_URL, {
