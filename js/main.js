@@ -556,7 +556,9 @@ const App = { state: {}, refreshLogoList: null };
         "Lisse les gros plis de manutention mais conserve la texture naturelle du tissu et les ombres internes du vêtement.",
         "FIDÉLITÉ ABSOLUE : couleurs exactes (teinte, saturation, luminosité), coupe, proportions, coutures, zips, empiècements, panneaux de couleur, cordons — rien d'inventé, rien d'omis, rien de simplifié.",
         "SUPPRIME tous les logos, textes, écussons, étiquettes et marquages du vêtement (ils seront reposés ensuite depuis les pixels originaux) : le textile est parfaitement vierge, sans trace, relief ni logo fantôme.",
-        `Fond uni exactement ${bg.hex} sur toute l'image, jusqu'aux bords et dans les coins, sans ombre portée, dégradé, texture ni vignettage.`
+        `Fond uni exactement ${bg.hex} sur toute l'image, jusqu'aux bords et dans les coins, sans ombre portée, dégradé, texture ni vignettage.`,
+        "NETTETÉ : le vêtement est parfaitement NET, détouré franchement — aucun flou, aucun halo lumineux, aucun contour fantôme autour du vêtement.",
+        "ÉCHEC À ÉVITER : si le résultat montre une table, un sol, un mur, un objet de la scène d'origine, ou un vêtement flou fondu dans le fond, c'est RATÉ. Seul le vêtement net sur le fond uni est accepté."
       );
     } else {
       lines.push(
@@ -593,6 +595,136 @@ const App = { state: {}, refreshLogoList: null };
 
   // ── Appel Gemini pour une vue ──
 
+  // Prépare une photo produit avant l'envoi : recadrage serré sur le vêtement
+  // (le décor — bureau, table, sol — disparaît presque entièrement du cadre),
+  // puis neutralisation du fond restant. Le modèle ne peut plus s'ancrer sur la
+  // scène de la photo. Les couleurs du vêtement ne sont JAMAIS modifiées ; en
+  // cas de doute la fonction rend la photo telle quelle.
+  function neutralizeDecor(canvas) {
+    const maxDim = 1024;
+    const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+    const W = Math.round(canvas.width * sc), H = Math.round(canvas.height * sc);
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(canvas, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+
+    // Couleurs de fond : médiane de chaque coin (murs, moquette, table peuvent différer).
+    const PATCH = Math.max(16, (Math.min(W, H) * 0.06) | 0);
+    const cornerMed = (x0, y0) => {
+      const r = [], g = [], b = [];
+      for (let y = y0; y < y0 + PATCH; y++) {
+        for (let x = x0; x < x0 + PATCH; x++) {
+          const i = (y * W + x) * 4;
+          r.push(d[i]); g.push(d[i + 1]); b.push(d[i + 2]);
+        }
+      }
+      const m = a => a.sort((u, v) => u - v)[a.length >> 1];
+      return [m(r), m(g), m(b)];
+    };
+    const bgs = [
+      cornerMed(0, 0), cornerMed(W - PATCH, 0),
+      cornerMed(0, H - PATCH), cornerMed(W - PATCH, H - PATCH),
+    ];
+    const TOL = 95;
+    const isBg = p => {
+      const i = p * 4;
+      for (const [r, g, b] of bgs) {
+        if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b) < TOL) return true;
+      }
+      return false;
+    };
+
+    // Boîte du vêtement : lignes/colonnes contenant assez de pixels non-fond.
+    const rowHits = new Int32Array(H), colHits = new Int32Array(W);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!isBg(y * W + x)) { rowHits[y]++; colHits[x]++; }
+      }
+    }
+    const firstIdx = (hits, len, thr) => { for (let i = 0; i < len; i++) if (hits[i] > thr) return i; return -1; };
+    const lastIdx = (hits, len, thr) => { for (let i = len - 1; i >= 0; i--) if (hits[i] > thr) return i; return -1; };
+    let y0 = firstIdx(rowHits, H, W * 0.02), y1 = lastIdx(rowHits, H, W * 0.02);
+    let x0 = firstIdx(colHits, W, H * 0.02), x1 = lastIdx(colHits, W, H * 0.02);
+    let cw = W, chh = H, ox = 0, oy = 0;
+    let out = c, octx = ctx;
+    if (y0 >= 0 && x0 >= 0) {
+      const mx = ((x1 - x0) * 0.04) | 0, my = ((y1 - y0) * 0.04) | 0;
+      x0 = Math.max(0, x0 - mx); x1 = Math.min(W - 1, x1 + mx);
+      y0 = Math.max(0, y0 - my); y1 = Math.min(H - 1, y1 + my);
+      const area = (x1 - x0) * (y1 - y0) / (W * H);
+      if (area > 0.10 && area < 0.96) {
+        cw = x1 - x0 + 1; chh = y1 - y0 + 1; ox = x0; oy = y0;
+        out = document.createElement("canvas");
+        out.width = cw; out.height = chh;
+        octx = out.getContext("2d");
+        octx.drawImage(c, x0, y0, cw, chh, 0, 0, cw, chh);
+      }
+    }
+
+    // Neutralisation du fond restant dans le cadre recadré.
+    const id2 = octx.getImageData(0, 0, cw, chh);
+    const d2 = id2.data;
+    const isBg2 = p => {
+      const i = p * 4;
+      for (const [r, g, b] of bgs) {
+        if (Math.abs(d2[i] - r) + Math.abs(d2[i + 1] - g) + Math.abs(d2[i + 2] - b) < TOL) return true;
+      }
+      return false;
+    };
+    const STEP = 24;
+    const stepOk = (a, b) => {
+      const i = a * 4, j = b * 4;
+      return Math.abs(d2[i] - d2[j]) + Math.abs(d2[i + 1] - d2[j + 1]) + Math.abs(d2[i + 2] - d2[j + 2]) < STEP;
+    };
+    const seen = new Uint8Array(cw * chh);
+    const queue = new Int32Array(cw * chh);
+    let head = 0, tail = 0;
+    const seed = p => { if (!seen[p] && isBg2(p)) { seen[p] = 1; queue[tail++] = p; } };
+    const grow = (from, p) => { if (!seen[p] && isBg2(p) && stepOk(from, p)) { seen[p] = 1; queue[tail++] = p; } };
+    for (let x = 0; x < cw; x++) { seed(x); seed((chh - 1) * cw + x); }
+    for (let y = 0; y < chh; y++) { seed(y * cw); seed(y * cw + cw - 1); }
+    while (head < tail) {
+      const p = queue[head++];
+      const x = p % cw, y = (p / cw) | 0;
+      if (x > 0) grow(p, p - 1);
+      if (x < cw - 1) grow(p, p + 1);
+      if (y > 0) grow(p, p - cw);
+      if (y < chh - 1) grow(p, p + cw);
+    }
+    // Le cœur de l'image touché = vêtement mangé : on garde le recadrage, pas la neutralisation.
+    let central = 0;
+    const bx0 = (cw * 0.3) | 0, bx1 = (cw * 0.7) | 0, by0 = (chh * 0.3) | 0, by1 = (chh * 0.7) | 0;
+    for (let y = by0; y < by1; y++) {
+      for (let x = bx0; x < bx1; x++) if (seen[y * cw + x]) central++;
+    }
+    const applied = central / ((bx1 - bx0) * (by1 - by0)) <= 0.25;
+    if (applied) {
+      for (let p = 0; p < cw * chh; p++) {
+        if (seen[p]) { const i = p * 4; d2[i] = 245; d2[i + 1] = 245; d2[i + 2] = 245; }
+      }
+      octx.putImageData(id2, 0, 0);
+    }
+    // Score de propreté : l'anneau extérieur fin (la marge du recadrage, hors
+    // vêtement par construction) doit être débarrassé du décor. S'il y reste des
+    // pixels de scène (grain de plancher, moquette…), le nettoyage local est
+    // jugé insuffisant → détourage IA.
+    const ring = Math.max(6, (Math.min(cw, chh) * 0.02) | 0);
+    let frame = 0, dirty = 0;
+    for (let y = 0; y < chh; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (x >= ring && x < cw - ring && y >= ring && y < chh - ring) continue;
+        frame++;
+        const p = y * cw + x;
+        if (!(applied && seen[p]) && !isBg2(p)) dirty++;
+      }
+    }
+    out.__cleaned = applied && dirty / frame < 0.15;
+    return out;
+  }
+
   function baseCanvas() {
     const c = document.createElement("canvas");
     c.width = 1536; c.height = 1920; // portrait 4:5
@@ -610,7 +742,9 @@ const App = { state: {}, refreshLogoList: null };
     const images = [canvasToB64(baseCanvas(), 2048)];
     let hasIdentity = false;
     if (view.kind === "packshot") {
-      images.push(canvasToB64(view.source, 1536));
+      // Pré-nettoyage local éprouvé : recadrage sur le vêtement + décor neutralisé.
+      // Gemini ne voit presque plus la scène, le prompt packshot fait le reste.
+      images.push(canvasToB64(neutralizeDecor(view.source), 1536));
     } else {
       const pack = slot("packshot-" + view.angle) || slot("packshot-face");
       if (!pack || !pack.gen) throw new Error("Génère et valide d'abord le packshot " + view.angle + ".");
