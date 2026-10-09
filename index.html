@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Studio 2.0 — Footkorner</title>
-<link rel="stylesheet" href="styles.css?v=2026081142">
+<link rel="stylesheet" href="styles.css?v=2026100950">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 </head>
 <body>
@@ -35,9 +35,9 @@
 <!-- ═══════════ Application ═══════════ -->
 <section id="screen-app" class="screen hidden">
   <header class="topbar">
-    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v42</span>
+    <strong><span class="brand-dot"></span>Studio 2.0</strong> <span id="app-version" class="muted" style="font-size:0.72rem">v50</span>
     <nav id="stepper">
-      <span class="step" data-step="1">1 · Photo &amp; mannequin</span>
+      <span class="step" data-step="1">1 · Préparation</span>
       <span class="step" data-step="2">2 · Génération</span>
       <span class="step" data-step="3">3 · Logos</span>
       <span class="step" data-step="4">4 · Placement</span>
@@ -46,6 +46,7 @@
     <div>
       <span class="capsule" id="cap-time">--:--</span>
       <span class="capsule" id="cap-date">…</span>
+      <span id="user-email" class="muted" style="font-size:0.75rem"></span>
       <button id="btn-admin" class="btn ghost">Utilisateurs</button>
       <button id="btn-logout" class="btn-round" title="Déconnexion">✕</button>
     </div>
@@ -53,192 +54,71 @@
 
   <div id="view-switcher" class="view-switcher hidden"></div>
 
-  <!-- Étape 1 : source + description -->
+  <!-- Étape 1 : préparation (photos + mannequin) -->
   <div id="step-1" class="panel">
     <div id="restore-banner" class="banner hidden">
       <span id="restore-text">Une session précédente a été retrouvée.</span>
       <button id="btn-restore" class="btn primary">Reprendre</button>
       <button id="btn-restore-dismiss" class="btn ghost">Ignorer</button>
     </div>
-    <div class="qwrap">
 
-      <div class="qstep" id="qs-1">
-        <p class="qcount">Étape 1 sur 4</p>
-        <h2 class="qtitle">Ajoute tes <em>photos</em></h2>
-        <div id="project-type" class="photo-cards">
-          <button class="type-card photo-card" data-type="worn">
-            <span class="ph"><img src="assets/ex-portee.jpg" alt=""></span>
-            <strong>Photo portée</strong>
-            <small>Un mannequin est sur la photo : on le remplace</small>
-          </button>
-          <button class="type-card photo-card" data-type="flat">
-            <span class="ph"><img src="assets/ex-aplat.jpg" alt=""></span>
-            <strong>Produit à plat</strong>
-            <small>Vêtement posé ou plié : on crée le mannequin</small>
-          </button>
-          <button class="type-card photo-card" data-type="ghost">
-            <span class="ph"><img src="assets/ex-ghost.jpg" alt=""></span>
-            <strong>Photo ghost</strong>
-            <small>Mannequin invisible : on crée le mannequin</small>
-          </button>
-        </div>
-        <div id="drop-source" class="dropzone">
-          <input type="file" id="file-source" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden>
-          <p>Glisser une ou plusieurs photos (face, dos, profil…) ou <button class="linklike" id="btn-browse">parcourir</button></p>
-          <p class="hint">JPG, PNG, WebP et HEIC (photos iPhone, converties automatiquement sur place).</p>
-        </div>
-        <ul id="views-list" class="views-list"></ul>
-        <p class="hint">Choisis d'abord le <strong>type de photo</strong> ci-dessus, puis charge tes photos. Toutes servent de références du vêtement. <strong>Vérifie le champ « Angle »</strong> de chaque vue (face / dos / profil). Un fichier nommé « logo… » part automatiquement dans la bibliothèque de logos.</p>
-        <div class="qnav">
-          <span></span>
-          <button id="qs3-next" class="btn primary" disabled>Continuer</button>
-        </div>
+    <h2 class="qtitle" style="margin-top:0.6em">Prépare ton <em>produit</em></h2>
+    <p class="hint" style="text-align:center;max-width:620px;margin:0 auto 1.4rem">Deux photos → quatre visuels : packshot face &amp; dos (vêtement seul détouré), puis le même mannequin face &amp; dos. Les logos sont retirés à la génération et reposés depuis les pixels originaux.</p>
+
+    <div class="shoot-grid">
+      <div class="shoot-slot" id="slot-face">
+        <strong>Photo FACE</strong>
+        <div class="slot-ph" id="ph-face"><span>Glisser une photo ou cliquer</span></div>
+        <small class="hint">Obligatoire — portée, à plat ou ghost, peu importe : le packshot s'en charge.</small>
+        <input type="file" id="file-face" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" hidden>
       </div>
-
-      <div class="qstep hidden" id="qs-2">
-        <p class="qcount">Étape 2 sur 4</p>
-        <h2 class="qtitle">Choisis ton <em>mannequin</em></h2>
-        <select id="model-preset" class="hidden" aria-hidden="true">
-          <option value="">— Choisir un profil —</option>
-          <option value="h20">Homme ~20</option>
-          <option value="h30">Homme ~30</option>
-          <option value="f25">Femme ~25</option>
-          <option value="ado">Ado ~15</option>
-          <option value="hnoir">Homme ~25</option>
-          <option value="fnoire">Femme ~25</option>
-          <option value="hmag">Homme ~28</option>
-          <option value="fasie">Femme ~25</option>
-          <option value="perso">Personnalisé…</option>
-        </select>
-        <div id="profile-cards" class="pose-cards profiles-8">
-          <button type="button" class="pose-card photo" data-preset="h20"><img src="assets/profil-h20.jpg?v=2026081142" alt="" loading="lazy"><span>Homme ~20</span></button>
-          <button type="button" class="pose-card photo" data-preset="h30"><img src="assets/profil-h30.jpg?v=2026081142" alt="" loading="lazy"><span>Homme ~30</span></button>
-          <button type="button" class="pose-card photo" data-preset="hnoir"><img src="assets/profil-hnoir.jpg?v=2026081142" alt="" loading="lazy"><span>Homme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="hmag"><img src="assets/profil-hmag.jpg?v=2026081142" alt="" loading="lazy"><span>Homme ~28</span></button>
-          <button type="button" class="pose-card photo" data-preset="f25"><img src="assets/profil-f25.jpg?v=2026081142" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="fnoire"><img src="assets/profil-fnoire.jpg?v=2026081142" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="fasie"><img src="assets/profil-fasie.jpg?v=2026081142" alt="" loading="lazy"><span>Femme ~25</span></button>
-          <button type="button" class="pose-card photo" data-preset="ado"><img src="assets/profil-ado.jpg?v=2026081142" alt="" loading="lazy"><span>Ado ~15</span></button>
-          <button type="button" class="pose-card photo" data-preset="sa"><img src="assets/profil-sa.jpg?v=2026081142" alt="" loading="lazy"><span>Homme streetwear</span></button>
-          <button type="button" class="pose-card photo" data-preset="sb"><img src="assets/profil-sb.jpg?v=2026081142" alt="" loading="lazy"><span>Homme urbain</span></button>
-          <button type="button" class="pose-card photo" data-preset="sc"><img src="assets/profil-sc.jpg?v=2026081142" alt="" loading="lazy"><span>Femme rooftop</span></button>
-          <button type="button" class="pose-card photo" data-preset="sd"><img src="assets/profil-sd.jpg?v=2026081142" alt="" loading="lazy"><span>Homme salle</span></button>
-          <button type="button" class="pose-card photo free-card" data-preset="free"><span class="free-ph">✎</span><span>Décrire mon mannequin</span></button>
-        </div>
-        <p class="hint" style="text-align:center">Un clic choisit le mannequin. « Décrire mon mannequin » : tu écriras ta description à la dernière étape.</p>
-        <div class="qnav">
-          <button class="btn ghost" data-back="1">← Retour</button>
-          <span></span>
-        </div>
-      </div>
-
-      <div class="qstep hidden" id="qs-3">
-        <p class="qcount">Étape 3 sur 4</p>
-        <h2 class="qtitle">Quel <em>fond</em> pour les photos&nbsp;?</h2>
-        <div id="bg-cards" class="photo-cards framing">
-          <button class="photo-card active" data-bg="studio">
-            <span class="ph swatch" style="background:#F5F5F5"></span>
-            <strong>Studio</strong>
-            <small>Gris très clair #F5F5F5, le standard e-commerce</small>
-          </button>
-          <button class="photo-card" data-bg="white">
-            <span class="ph swatch" style="background:#FFFFFF"></span>
-            <strong>Blanc pur</strong>
-            <small>#FFFFFF, fond boutique épuré</small>
-          </button>
-          <button class="photo-card" data-bg="grey">
-            <span class="ph swatch" style="background:#E3E3E3"></span>
-            <strong>Gris</strong>
-            <small>#E3E3E3, gris studio plus marqué</small>
-          </button>
-          <button class="photo-card" data-bg="custom">
-            <span class="ph swatch" id="bg-custom-thumb" style="background:#1a1a1a;color:#F2F1ED;display:flex;align-items:center;justify-content:center;font-size:1.6rem">🖼</span>
-            <strong>Personnalisé</strong>
-            <small>Ta propre image en décor (boutique, rue, texture…)</small>
-          </button>
-        </div>
-        <input type="file" id="bg-custom-file" accept="image/png,image/jpeg,image/webp" hidden>
-        <p class="hint">Le mannequin sera intégré dans le fond choisi. « Personnalisé » : charge une image, elle sert de décor complet.</p>
-        <div class="qnav">
-          <button class="btn ghost" data-back="2">← Retour</button>
-          <button id="qsbg-next" class="btn primary">Continuer</button>
-        </div>
-      </div>
-
-      <div class="qstep hidden" id="qs-4">
-        <p class="qcount">Étape 4 sur 4</p>
-        <h2 class="qtitle">Coche les <em>vues</em> à générer</h2>
-        <p class="hint" style="text-align:center">Une photo par pose cochée, toujours avec le même mannequin. « Auto » laisse l'IA choisir une pose naturelle.</p>
-        <div id="pose-cards" class="pose-cards"></div>
-        <p class="hint" style="text-align:center;margin-top:1rem"><strong>Cadrage</strong> des photos générées :</p>
-        <select id="project-framing" class="hidden" aria-hidden="true">
-          <option value="source">Identique à la photo source</option>
-          <option value="full">Plein pied (tête aux pieds)</option>
-          <option value="mid">Plan américain (mi-cuisse)</option>
-          <option value="low">Cadré sur le bas (pantalon : torse → pieds, sans tête)</option>
-        </select>
-        <div id="framing-cards" class="photo-cards framing">
-          <button class="photo-card" data-framing="source">
-            <span class="ph dashed"><img src="assets/cadre-full.jpg" alt=""></span>
-            <strong>Comme la source</strong>
-            <small>Le cadrage de ta photo est conservé tel quel</small>
-          </button>
-          <button class="photo-card" data-framing="full">
-            <span class="ph"><img src="assets/cadre-full.jpg" alt=""></span>
-            <strong>Plein pied</strong>
-            <small>De la tête aux chaussures</small>
-          </button>
-          <button class="photo-card" data-framing="mid">
-            <span class="ph"><img src="assets/cadre-mid.jpg" alt=""></span>
-            <strong>Plan américain</strong>
-            <small>De la tête à mi-cuisse</small>
-          </button>
-          <button class="photo-card" data-framing="low">
-            <span class="ph"><img src="assets/cadre-low.jpg" alt=""></span>
-            <strong>Cadré sur le bas</strong>
-            <small>Pantalon : torse → pieds, sans tête</small>
-          </button>
-        </div>
-        <form id="form-model">
-          <div id="free-desc-box" class="hidden">
-            <label>Description libre du mannequin
-              <textarea id="m-free" rows="3" placeholder="Ex. : Homme 20-25 ans, peau brune, cheveux courts crépus soignés, silhouette athlétique élancée, regard calme et assuré."></textarea>
-            </label>
-            <p class="hint">Cette description est envoyée telle quelle à l'IA (elle remplace les champs « Détails »). Sans photo de référence, le visage peut varier d'une génération à l'autre : la première photo validée sert ensuite de référence aux autres vues.</p>
-          </div>
-          <details id="model-details">
-            <summary>Détails du mannequin (ajuster si besoin)</summary>
-          <div class="grid2">
-            <label>Genre / présentation <input id="m-genre" placeholder="Homme"></label>
-            <label>Origine / apparence <input id="m-origine" placeholder="Espagnol"></label>
-            <label>Âge approximatif <input id="m-age" placeholder="Environ 20 ans"></label>
-            <label>Morphologie <input id="m-morpho" placeholder="Sportif"></label>
-            <label>Cheveux <input id="m-cheveux" placeholder="Bruns courts et texturés"></label>
-            <label>Barbe <input id="m-barbe" placeholder="Sans barbe"></label>
-          </div>
-          <label>Expression / attitude <input id="m-expression" placeholder="Expression calme"></label>
-          <label>Pose souhaitée <input id="m-pose" placeholder="Pose e-commerce naturelle, différente de la source"></label>
-          <label>Accessoires à retirer (et nouvelle pose des membres)
-            <input id="m-accessoires" placeholder="Retirer le ballon ; bras relâchés le long du corps">
-          </label>
-          <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel"></label>
-          </details>
-        </form>
-        <p id="q-recap" class="hint"></p>
-        <button id="btn-generate" class="btn primary big" disabled>Générer toutes les vues</button>
-        <div class="qnav">
-          <button class="btn ghost" data-back="3">← Retour</button>
-        </div>
+      <div class="shoot-slot" id="slot-dos">
+        <strong>Photo DOS</strong>
+        <div class="slot-ph" id="ph-dos"><span>Glisser une photo ou cliquer</span></div>
+        <small class="hint">Recommandée — sans elle, seuls les deux visuels face sont produits.</small>
+        <input type="file" id="file-dos" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" hidden>
       </div>
     </div>
+    <p class="hint" style="text-align:center">JPG, PNG, WebP et HEIC (photos iPhone, converties sur place). Un fichier nommé « logo… » part dans la bibliothèque de logos (étape Logos).</p>
 
+    <div class="prep-model">
+      <label>Le <strong>mannequin</strong> — description compacte (genre, âge, apparence, coiffure, attitude)
+        <textarea id="m-desc" rows="2" placeholder="Ex. : Homme métisse, 22 ans, sportif, cheveux courts texturés, sans barbe, expression calme."></textarea>
+      </label>
+      <div id="desc-chips" class="chips"></div>
     </div>
+
+    <details id="prep-options">
+      <summary>Options (cadrage, fond, poses supplémentaires, consignes)</summary>
+      <div class="grid2">
+        <label>Cadrage des vues portées
+          <select id="opt-framing">
+            <option value="mid" selected>Mi-cuisses (recommandé)</option>
+            <option value="full">Plein pied</option>
+            <option value="low">Bas du corps (sans tête)</option>
+          </select>
+        </label>
+        <label>Fond des visuels
+          <select id="opt-bg">
+            <option value="studio" selected>Studio #F5F5F5 (standard)</option>
+            <option value="white">Blanc pur #FFFFFF</option>
+            <option value="grey">Gris #E3E3E3</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">Poses supplémentaires du mannequin (une génération en plus par pose) :</p>
+      <div id="extra-poses" class="chips"></div>
+      <label>Consignes supplémentaires <input id="m-notes" placeholder="Optionnel — ex. : manches légèrement remontées"></label>
+    </details>
+
+    <p id="q-recap" class="hint" style="text-align:center"></p>
+    <button id="btn-generate" class="btn primary big" disabled>Charge au moins la photo FACE</button>
   </div>
 
   <!-- Étape 2 : génération -->
   <div id="step-2" class="panel hidden">
     <h2>Contrôle de la génération</h2>
-    <p class="muted">Vérifier : identité et pose conformes, tête entière, aucun accessoire, aucun logo (même fantôme), buste avec la même inclinaison que la source, fond uniforme. <strong>S'il reste une trace de logo : encadre-la directement sur l'image</strong> puis clique sur « Nettoyer la zone encadrée » (~10 centimes, comme une génération).</p>
+    <p class="muted">Packshots : vêtement seul, couleurs et construction exactes, aucune trace de logo. Vues portées : conforme au packshot, même mannequin partout, cadrage demandé, fond uniforme. <strong>S'il reste une trace de logo : encadre-la directement sur l'image</strong> puis clique sur « Nettoyer la zone encadrée » (~10 centimes, comme une génération).</p>
     <div class="compare-wrap">
       <div class="compare-box">
         <canvas id="canvas-compare"></canvas>
@@ -453,14 +333,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><p id="busy-msg">Génération en cours…</p></div>
 </section>
 
-<script src="vendor/supabase.min.js?v=2026081142"></script>
-<script src="vendor/libheif-bundle.js?v=2026081142"></script>
-<script src="js/config.js?v=2026081142"></script>
-<script src="js/masking.js?v=2026081142"></script>
-<script src="js/persist.js?v=2026081142"></script>
-<script src="js/admin.js?v=2026081142"></script>
-<script src="js/placement.js?v=2026081142"></script>
-<script src="js/colorfix.js?v=2026081142"></script>
-<script src="js/main.js?v=2026081142"></script>
+<script src="vendor/supabase.min.js?v=2026100950"></script>
+<script src="vendor/libheif-bundle.js?v=2026100950"></script>
+<script src="js/config.js?v=2026100950"></script>
+<script src="js/masking.js?v=2026100950"></script>
+<script src="js/persist.js?v=2026100950"></script>
+<script src="js/admin.js?v=2026100950"></script>
+<script src="js/placement.js?v=2026100950"></script>
+<script src="js/colorfix.js?v=2026100950"></script>
+<script src="js/main.js?v=2026100950"></script>
 </body>
 </html>

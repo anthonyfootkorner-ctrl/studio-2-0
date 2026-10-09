@@ -1060,3 +1060,24 @@ h1, h2 { letter-spacing: -0.03em; font-weight: 650; }
 /* Carte « Décrire mon mannequin » */
 .pose-card.free-card .free-ph { display: flex; align-items: center; justify-content: center; aspect-ratio: 3 / 4; width: 100%; border-radius: 10px; background: #1a1a1a; color: #D9E86B; font-size: 2.4rem; border: 1px dashed rgba(217,232,107,0.55); }
 #free-desc-box textarea { width: 100%; resize: vertical; }
+
+/* ── Studio 3.0 : écran de préparation ── */
+.shoot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; max-width: 640px; margin: 0 auto 0.6rem; }
+@media (max-width: 640px) { .shoot-grid { grid-template-columns: 1fr; } }
+.shoot-slot { text-align: center; cursor: pointer; }
+.shoot-slot strong { display: block; margin-bottom: 0.5rem; letter-spacing: 0.04em; }
+.slot-ph { position: relative; aspect-ratio: 4 / 5; border: 1.5px dashed rgba(242,241,237,0.35); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: rgba(242,241,237,0.55); background: #141413; transition: border-color 160ms, background 160ms; overflow: hidden; }
+.shoot-slot:hover .slot-ph, .shoot-slot.drag .slot-ph { border-color: #D9E86B; background: #191918; }
+.slot-ph.filled { border-style: solid; border-color: rgba(217,232,107,0.6); }
+.slot-ph img { width: 100%; height: 100%; object-fit: contain; background: #0f0f0e; }
+.slot-del { position: absolute; top: 8px; right: 8px; border: none; border-radius: 999px; width: 28px; height: 28px; background: rgba(13,13,12,0.82); color: #F2F1ED; cursor: pointer; }
+.slot-del:hover { background: #D9E86B; color: #0D0D0C; }
+.prep-model { max-width: 640px; margin: 1.4rem auto 0.8rem; }
+.prep-model textarea { width: 100%; resize: vertical; margin-top: 0.4rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.chip { border: 1px solid rgba(242,241,237,0.28); border-radius: 999px; padding: 0.32rem 0.85rem; background: transparent; color: #F2F1ED; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+.chip:hover { border-color: #D9E86B; color: #D9E86B; }
+.chip input { accent-color: #D9E86B; }
+#prep-options { max-width: 640px; margin: 0.8rem auto; }
+#prep-options label { display: block; margin-top: 0.7rem; }
+#btn-generate.big { display: block; margin: 1rem auto 0; }

@@ -67,19 +67,22 @@ const Persist = (() => {
   async function save() {
     if (typeof App.syncAliases === "function") App.syncAliases();
     const views = App.state.views || [];
-    if (!views.length) return;
+    if (!views.length && !App.state.photos?.face) return;
+    const g = id => document.getElementById(id);
     try {
       await put({
-        version: 2,
+        version: 3,
         savedAt: Date.now(),
         cur: App.state.cur,
-        projectType: App.state.projectType || "worn",
-        framing: App.state.framing || "source",
-        presetKey: App.state.presetKey || "",
-        poseKeys: App.state.poseKeys || [],
-        background: App.state.background || "studio",
-        freeDesc: (document.getElementById("m-free") || {}).value || "",
-        customBg: await canvasToBlob(App.state.customBg),
+        modelDesc: (g("m-desc") || {}).value || "",
+        notes: (g("m-notes") || {}).value || "",
+        framing: (g("opt-framing") || {}).value || "mid",
+        background: (g("opt-bg") || {}).value || "studio",
+        posesExtra: App.state.posesExtra || [],
+        photos: {
+          face: await canvasToBlob(App.state.photos?.face),
+          dos: await canvasToBlob(App.state.photos?.dos),
+        },
         viewSeq: App.state.viewSeq || views.length,
         libSeq: App.state.libSeq || 0,
         logoLibrary: (App.state.logoLibrary || []).map(it => ({
@@ -90,17 +93,13 @@ const Persist = (() => {
         })),
         views: await Promise.all(views.map(async v => ({
           id: v.id,
+          key: v.key,
           name: v.name,
-          role: v.role || "vue",
+          kind: v.kind || "worn",
           angle: v.angle || "face",
-          flat: !!v.flat,
           pose: v.pose || "",
-          poseKey: v.poseKey || "",
-          poseClone: !!v.poseClone,
-          cloneOf: v.cloneOf || "",
           exported: !!v.exported,
           source: await canvasToBlob(v.source),
-          cleanRef: await canvasToBlob(v.cleanRef),
           gen: await canvasToBlob(v.gen),
           logoSeq: v.logoSeq || 0,
           logos: serializeLogos(v.logos),
@@ -117,46 +116,28 @@ const Persist = (() => {
     timer = setTimeout(save, 800);
   }
 
-  // Ancien format (v1, une seule photo) → projet à une vue.
   async function getSaved() {
     const raw = await getRaw();
-    if (!raw) return null;
-    if (raw.version === 2) return raw;
-    return {
-      version: 2,
-      savedAt: raw.savedAt,
-      cur: 0,
-      viewSeq: 1,
-      views: [{
-        id: 1,
-        name: raw.backMode ? "dos" : "face",
-        exported: false,
-        source: raw.source,
-        gen: raw.gen,
-        logoSeq: raw.logoSeq || 0,
-        logos: raw.logos || [],
-      }],
-    };
+    return raw && raw.version === 3 ? raw : null;
   }
 
   async function restore(data) {
     const s = App.state;
+    const g = id => document.getElementById(id);
     s.views = [];
-    s.viewSeq = data.viewSeq || data.views.length;
-    // Migration : les anciens projets utilisaient un drapeau « à plat » par vue.
-    s.projectType = data.projectType || (data.views.some(v => v.flat) ? "flat" : "worn");
-    s.framing = data.framing || "source";
-    s.presetKey = data.presetKey || "";
-    s.poseKeys = data.poseKeys || [];
-    s.background = data.background || "studio";
-    if (document.getElementById("m-free")) document.getElementById("m-free").value = data.freeDesc || "";
-    s.customBg = await blobToCanvas(data.customBg);
-    document.querySelectorAll("#bg-cards .photo-card").forEach(b =>
-      b.classList.toggle("active", b.dataset.bg === s.background));
-    document.querySelectorAll("#project-type .type-card").forEach(b =>
-      b.classList.toggle("active", b.dataset.type === s.projectType));
-    const framingSel = document.getElementById("project-framing");
-    if (framingSel) framingSel.value = s.framing;
+    s.viewSeq = data.viewSeq || (data.views || []).length;
+    s.posesExtra = data.posesExtra || [];
+    s.photos = {
+      face: await blobToCanvas(data.photos?.face),
+      dos: await blobToCanvas(data.photos?.dos),
+    };
+    if (g("m-desc")) g("m-desc").value = data.modelDesc || "";
+    if (g("m-notes")) g("m-notes").value = data.notes || "";
+    if (g("opt-framing")) g("opt-framing").value = data.framing || "mid";
+    if (g("opt-bg")) g("opt-bg").value = data.background || "studio";
+    document.querySelectorAll("#extra-poses input").forEach(c => {
+      c.checked = s.posesExtra.includes(c.value);
+    });
     s.libSeq = data.libSeq || 0;
     s.logoLibrary = (data.logoLibrary || []).map(it => {
       const mask = it.mask ? new Uint8ClampedArray(it.mask) : null;
@@ -167,7 +148,7 @@ const Persist = (() => {
         cropCanvas: mask ? Masking.buildCropCanvas(it.imgData, mask) : null,
       };
     });
-    for (const d of data.views) {
+    for (const d of data.views || []) {
       const source = await blobToCanvas(d.source);
       if (!source) continue;
       const ctx = source.getContext("2d");
@@ -186,17 +167,14 @@ const Persist = (() => {
       });
       s.views.push({
         id: d.id,
+        key: d.key,
         name: d.name,
-        role: d.role || "vue",
+        role: "vue",
+        kind: d.kind || "worn",
         angle: d.angle || "face",
-        flat: !!d.flat,
         pose: d.pose || "",
-        poseKey: d.poseKey || "",
-        poseClone: !!d.poseClone,
-        cloneOf: d.cloneOf || "",
         exported: !!d.exported,
         source,
-        cleanRef: await blobToCanvas(d.cleanRef),
         gen: await blobToCanvas(d.gen),
         master: null,
         logos,

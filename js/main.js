@@ -1,6 +1,8 @@
-// Studio 2.0 — orchestration : auth, file multi-vues, génération Gemini, inventaire, export.
-// Le projet est une liste de « vues » (face, dos, profil…). La première vue générée sert
-// de référence d'identité pour toutes les autres : même mannequin sur chaque photo.
+// Studio 3.0 — pipeline du skill « créer packshots et mannequin » :
+// photos face/dos → PACKSHOTS (vêtement seul, fond uni, sans logos, validés)
+// → vues portées qui utilisent le packshot comme référence absolue du produit
+// (le décor des photos ne touche plus jamais la génération portée)
+// → logos reposés depuis les pixels originaux → export WebP 1080×1350 ≤ 200 Ko.
 
 const App = { state: {}, refreshLogoList: null };
 
@@ -9,31 +11,34 @@ const App = { state: {}, refreshLogoList: null };
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   let curStep = 1;
 
-  // ══════════ État : vues ══════════
-  // Vue = { id, name, source, gen, master, logos[], logoSeq, exported }
-  // App.state.sourceCanvas / genCanvas / logos / logoSeq sont des alias de la vue
-  // courante (lus par placement.js et masking.js). Ne jamais réassigner logos
-  // ailleurs que dans selectView — muter le tableau en place (push/splice).
+  // ══════════ État ══════════
+  // Les « vues » sont les LIVRABLES du pipeline (packshot-face, packshot-dos,
+  // mannequin-face, mannequin-dos, mannequin-<pose>…), dérivés des deux photos.
+  // App.state.sourceCanvas / genCanvas / logos / logoSeq restent des alias de la
+  // vue courante (lus par placement.js et masking.js) — muter logos en place.
 
-  // Un « vrai » sujet à générer (par opposition aux références produit et pantalons)
   const isVue = v => !v.role || v.role === "vue";
 
   function resetProject(keepModel) {
+    App.state.photos = { face: null, dos: null };
+    App.state.posesExtra = [];
     App.state.views = [];
     App.state.cur = -1;
     App.state.viewSeq = 0;
     App.state.logoLibrary = [];
     App.state.libSeq = 0;
-    App.state.projectType = null; // choix obligatoire : pas de défaut silencieux
-    App.state.framing = "source";
-    $$("#project-type .type-card").forEach(b => b.classList.remove("active"));
-    el("project-framing").value = "source";
     App.state.sourceCanvas = null;
     App.state.genCanvas = null;
     App.state.masterCanvas = null;
     App.state.logos = [];
     App.state.logoSeq = 0;
-    if (!keepModel) el("form-model").reset();
+    if (!keepModel) {
+      el("m-desc").value = "";
+      el("m-notes").value = "";
+      el("opt-framing").value = "mid";
+      el("opt-bg").value = "studio";
+    }
+    $$("#extra-poses input").forEach(c => { c.checked = false; });
     el("link-download").classList.add("hidden");
     renderViewsList();
     renderViewSwitcher();
@@ -124,7 +129,7 @@ const App = { state: {}, refreshLogoList: null };
       el("screen-login").classList.toggle("hidden", logged);
       el("screen-app").classList.toggle("hidden", !logged);
       if (logged) {
-        el("user-email").textContent = session.user.email;
+        if (el("user-email")) el("user-email").textContent = session.user.email;
         goStep(1);
       }
     });
@@ -141,7 +146,7 @@ const App = { state: {}, refreshLogoList: null };
       s.classList.toggle("done", k < n);
     });
     renderViewSwitcher();
-    if (n === 1) syncQuestionnaire();
+    if (n === 1) syncPrepare();
     if (n === 2) { renderCompare(); updateStep2Buttons(); }
     if (n === 3) { renderInventory(); renderLogoLibrary(); }
     if (n === 4) Placement.renderAll();
@@ -189,23 +194,14 @@ const App = { state: {}, refreshLogoList: null };
 
   // ══════════ Étape 1 : vues sources ══════════
 
-  function detectAngle(name) {
-    const n = name.toLowerCase();
-    if (/dos|back|arri/.test(n)) return "dos";
-    if (/face|front|avant|devant/.test(n)) return "face";
-    if (/profil|side|cote|côté/.test(n)) return "profil";
-    return null;
-  }
 
-  function addViewFile(file) {
+  // Charge une photo dans l'emplacement FACE ou DOS (canvas plafonné à 2048 px).
+  function addPhotoFile(slotKey, file) {
     if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return;
-    // Un fichier nommé « logo… » est un logo à détourer, pas une vue à générer.
     if (/logo/i.test(file.name)) { addLibraryFile(file, false); return; }
     const img = new Image();
     img.onload = () => {
-      // Les photos iPhone (jusqu'à 48 Mpx) sont plafonnées : au-delà, tout devient
-      // lourd (sauvegardes, composites) sans gain pour l'e-commerce.
-      const MAX_DIM = 2048; // aligné sur la sortie 2K du modèle
+      const MAX_DIM = 2048;
       const sc = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas");
       c.width = Math.round(img.naturalWidth * sc);
@@ -214,25 +210,8 @@ const App = { state: {}, refreshLogoList: null };
       cctx.imageSmoothingQuality = "high";
       cctx.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(img.src);
-      App.state.viewSeq++;
-      const defaults = ["face", "dos", "profil"];
-      const nVues = App.state.views.filter(isVue).length;
-      const fromFile = file.name.replace(/\.[^.]+$/, "").trim();
-      const v = {
-        id: App.state.viewSeq,
-        name: fromFile || defaults[nVues] || "vue-" + App.state.viewSeq,
-        angle: detectAngle(file.name) || defaults[nVues] || "face",
-        role: "vue",
-        source: c, gen: null, master: null,
-        logos: [], logoSeq: 0, exported: false,
-      };
-      App.state.views.push(v);
-      if (App.state.views.filter(isVue).length === 1) {
-        selectView(App.state.views.indexOf(v), { force: true });
-      }
-      renderViewsList();
-      renderViewSwitcher();
-      updateGenerateButton();
+      App.state.photos[slotKey] = c;
+      syncSlots();
       Persist.saveSoon();
     };
     img.src = URL.createObjectURL(file);
@@ -247,416 +226,224 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   function renderViewsList() {
-    const ul = el("views-list");
-    ul.innerHTML = "";
-    (App.state.views || []).forEach((v, i) => {
-      if (v.poseClone) return; // dérivée d'une pose cochée : gérée automatiquement
-      const li = document.createElement("li");
-      const img = document.createElement("img");
-      img.src = thumbnail(v.source);
-      const box = document.createElement("span");
-      box.className = "name";
-      const nameInput = document.createElement("input");
-      nameInput.value = v.name;
-      nameInput.title = "Nom de la vue (sert au nom du fichier exporté)";
-      nameInput.addEventListener("change", () => {
-        v.name = nameInput.value.trim() || v.name;
-        renderViewSwitcher();
-        Persist.saveSoon();
-      });
-      const isRef = !isVue(v);
-      const firstVueIdx = App.state.views.findIndex(isVue);
-      const dims = document.createElement("small");
-      dims.className = "muted";
-      dims.textContent = `${v.source.width} × ${v.source.height} px` +
-        (!isRef && i === firstVueIdx ? " — référence identité" : "") +
-        (v.role === "pant" ? " — sera porté par le mannequin" : "") +
-        (v.gen ? " — générée" : "");
-      const roleSel = document.createElement("select");
-      roleSel.innerHTML =
-        '<option value="vue">Vue à générer</option>' +
-        '<option value="ref">Photo produit (référence seule)</option>' +
-        '<option value="pant">Pantalon à ajouter au mannequin</option>';
-      roleSel.value = v.role || "vue";
-      roleSel.addEventListener("change", () => {
-        v.role = roleSel.value;
-        if (!isVue(v) && currentView() === v) {
-          const j = App.state.views.findIndex(isVue);
-          if (j >= 0) selectView(j, { force: true });
-        }
-        renderViewsList();
-        renderViewSwitcher();
-        updateGenerateButton();
-        Persist.saveSoon();
-      });
-      const angleSel = document.createElement("select");
-      angleSel.innerHTML =
-        '<option value="face">Angle : face</option>' +
-        '<option value="dos">Angle : dos</option>' +
-        '<option value="profil">Angle : profil</option>';
-      angleSel.value = v.angle || "face";
-      angleSel.addEventListener("change", () => {
-        v.angle = angleSel.value;
-        Persist.saveSoon();
-      });
-      box.append(nameInput, dims, roleSel);
-      if (!isRef && v.role !== "pant") box.append(angleSel);
-      const bDel = document.createElement("button");
-      bDel.className = "btn ghost";
-      bDel.textContent = "✕";
-      bDel.title = "Retirer cette vue";
-      bDel.addEventListener("click", () => {
-        App.state.views.splice(i, 1);
-        App.state.views = App.state.views.filter(x => !(x.poseClone && x.cloneOf === v.name && !x.gen));
-        if (App.state.cur >= App.state.views.length) App.state.cur = App.state.views.length - 1;
-        if (App.state.views.length) selectView(Math.max(0, App.state.cur), { force: true });
-        else resetProject(true);
-        renderViewsList();
-        updateGenerateButton();
-        Persist.saveSoon();
-      });
-      li.append(img, box, bDel);
-      ul.appendChild(li);
-    });
-  }
-
-  function updateGenerateButton() {
-    if (el("qs3-next")) updateQNav();
-    if (curQ === 4) renderRecap();
-    const vues = (App.state.views || []).filter(isVue);
-    const todo = vues.filter(v => !v.gen).length;
-    const btn = el("btn-generate");
-    btn.disabled = todo === 0;
-    const hasIdentity = vues.some(v => v.gen);
-    const typeChoisi = !!document.querySelector("#project-type .type-card.active");
-    if (!typeChoisi) btn.disabled = true;
-    if (!typeChoisi && vues.length > 0) {
-      btn.textContent = "⚠ Choisis d'abord le type de projet (porté / à plat / ghost)";
-      return;
-    }
-    btn.textContent = vues.length === 0
-      ? "Générer toutes les vues"
-      : todo === 0
-        ? "Toutes les vues sont générées"
-        : !hasIdentity && todo > 1
-          ? `Générer la 1re vue — valider le mannequin, puis les ${todo - 1} autre(s)`
-          : `Générer ${todo} vue${todo > 1 ? "s" : ""} (~${(todo * 0.09).toFixed(2).replace(".", ",")} €)`;
-  }
-
-  const MODEL_PRESETS = {
-    h20: { label: "Homme ~20", genre: "Homme", origine: "", age: "Environ 20 ans", morpho: "Sportif", cheveux: "Bruns courts et texturés", barbe: "Sans barbe", expression: "Expression calme" },
-    h30: { label: "Homme ~30", genre: "Homme", origine: "", age: "Environ 30 ans", morpho: "Athlétique", cheveux: "Bruns courts", barbe: "Barbe courte soignée", expression: "Expression confiante" },
-    hnoir: { label: "Homme ~25", genre: "Homme", origine: "Noir", age: "Environ 25 ans", morpho: "Athlétique", cheveux: "Très courts", barbe: "Barbe légère bien taillée", expression: "Expression confiante" },
-    hmag: { label: "Homme ~28", genre: "Homme", origine: "Nord-africain", age: "Environ 28 ans", morpho: "Sportif", cheveux: "Noirs courts", barbe: "Barbe courte", expression: "Expression assurée" },
-    f25: { label: "Femme ~25", genre: "Femme", origine: "", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Châtains attachés en queue de cheval", barbe: "", expression: "Expression naturelle" },
-    fnoire: { label: "Femme ~25", genre: "Femme", origine: "Noire", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Bouclés attachés", barbe: "", expression: "Expression naturelle et souriante" },
-    fasie: { label: "Femme ~25", genre: "Femme", origine: "Asiatique", age: "Environ 25 ans", morpho: "Sportive", cheveux: "Noirs mi-longs attachés", barbe: "", expression: "Expression douce" },
-    ado: { label: "Ado ~15", genre: "Garçon", origine: "", age: "Environ 15 ans", morpho: "Sportif", cheveux: "Bruns courts", barbe: "", expression: "Expression calme, pose catalogue naturelle" },
-    // Profils streetwear ajoutés le 2026-08-11 (descriptions fournies par l'utilisateur)
-    sa: { label: "Homme streetwear", genre: "Homme", origine: "Peau brune", age: "20-25 ans", morpho: "Athlétique élancé, mâchoire marquée", cheveux: "Courts crépus soignés (petit afro)", barbe: "", expression: "Regard calme et assuré" },
-    sb: { label: "Homme urbain", genre: "Homme", origine: "Teint métis clair", age: "20-25 ans", morpho: "Carrure athlétique, traits fins", cheveux: "Dégradé court sur les côtés", barbe: "", expression: "Allure urbaine confiante" },
-    sc: { label: "Femme rooftop", genre: "Femme", origine: "Peau hâlée / olive", age: "20-25 ans", morpho: "Silhouette sportive, traits marqués", cheveux: "Longs bruns ondulés", barbe: "", expression: "Regard direct" },
-    sd: { label: "Homme salle", genre: "Homme", origine: "Teint métis", age: "20-25 ans", morpho: "Sportif, look performance", cheveux: "Bouclés courts", barbe: "", expression: "Allure sportive posée" },
-  };
-
-  const ASSET_V = "2026081142";
-
-  const POSE_DEFS = [
-    { key: "auto", label: "Auto", pose: "" },
-    { key: "debout", label: "Debout", pose: "Debout, naturelle, bras relâchés le long du corps" },
-    { key: "troisquarts", label: "3/4", pose: "Debout en léger trois-quarts, épaules tournées, regard vers l'objectif" },
-    { key: "poche", label: "Main poche", pose: "Debout, une main dans la poche, attitude détendue" },
-    { key: "croises", label: "Bras croisés", pose: "Debout, bras croisés sur la poitrine, assuré" },
-    { key: "marche", label: "En marche", pose: "En marche naturelle vers l'objectif" },
-    { key: "dos", label: "De dos", pose: "De dos, tête droite, épaules détendues" },
-    { key: "ajuste", label: "Ajuste", pose: "En train d'ajuster le col ou la manche du vêtement, geste naturel" },
-  ];
-
-  const poseDef = key => POSE_DEFS.find(p => p.key === key);
-
-  // Plusieurs poses cochées = une photo générée par pose, toujours avec le MÊME
-  // mannequin : la première génération validée sert de référence d'identité aux
-  // suivantes (et la photo du profil choisi sert de référence à la première).
-  function selectedPoses() {
-    const keys = (App.state.poseKeys || []).filter(k => k !== "auto" && poseDef(k));
-    return keys.map(poseDef);
-  }
-
-  function applyPoseSelection() {
-    const sel = selectedPoses();
-    App.state.poseLabel = sel.length ? sel.map(p => p.label).join(" + ") : "Auto";
-    el("m-pose").value = sel.length ? sel[0].pose : "";
-    syncPoseViews();
-    renderRecap();
-    Persist.saveSoon();
-  }
-
-  // Fait correspondre les vues dérivées aux poses cochées : chaque pose
-  // au-delà de la première clone les vues à générer (même photo source).
-  // Une vue dérivée déjà générée (payée) n'est jamais supprimée.
-  function syncPoseViews() {
-    const views = App.state.views || [];
-    const sel = selectedPoses();
-    App.state.views = views.filter(v => !v.poseClone || v.gen);
-    const bases = App.state.views.filter(v => isVue(v) && !v.poseClone);
-    for (const base of bases) {
-      base.pose = sel.length ? sel[0].pose : "";
-      base.poseKey = sel.length ? sel[0].key : "";
-    }
-    for (const p of sel.slice(1)) {
-      for (const base of bases) {
-        const exists = App.state.views.some(v => v.poseClone && v.poseKey === p.key &&
-          v.cloneOf === base.name);
-        if (exists) continue;
-        App.state.viewSeq = (App.state.viewSeq || 0) + 1;
-        App.state.views.push({
-          id: "pc-" + App.state.viewSeq,
-          name: base.name + " · " + p.label.toLowerCase(),
-          role: "vue",
-          angle: base.angle || "face",
-          flat: base.flat,
-          source: base.source,
-          gen: null,
-          logos: [],
-          logoSeq: 0,
-          pose: p.pose,
-          poseKey: p.key,
-          poseClone: true,
-          cloneOf: base.name,
+    for (const key of ["face", "dos"]) {
+      const ph = el("ph-" + key);
+      if (!ph) continue;
+      const photo = App.state.photos[key];
+      ph.classList.toggle("filled", !!photo);
+      ph.innerHTML = "";
+      if (photo) {
+        const img = document.createElement("img");
+        img.src = thumbnail(photo, 180);
+        const bDel = document.createElement("button");
+        bDel.type = "button";
+        bDel.className = "slot-del";
+        bDel.textContent = "✕";
+        bDel.title = "Retirer cette photo";
+        bDel.addEventListener("click", ev => {
+          ev.stopPropagation();
+          App.state.photos[key] = null;
+          syncSlots();
+          Persist.saveSoon();
         });
+        ph.append(img, bDel);
+      } else {
+        const span = document.createElement("span");
+        span.textContent = "Glisser une photo ou cliquer";
+        ph.appendChild(span);
       }
     }
+  }
+
+  // ══════════ Pipeline : livrables et étapes ══════════
+
+  const BG_DEFS = {
+    studio: { label: "Studio", hex: "#F5F5F5", rgb: [245, 245, 245] },
+    white: { label: "Blanc pur", hex: "#FFFFFF", rgb: [255, 255, 255] },
+    grey: { label: "Gris", hex: "#E3E3E3", rgb: [227, 227, 227] },
+  };
+  const currentBg = () => BG_DEFS[el("opt-bg").value] || BG_DEFS.studio;
+
+  const POSES_EXTRA = [
+    { key: "troisquarts", label: "Trois-quarts", pose: "Debout en léger trois-quarts, épaules tournées, regard vers l'objectif" },
+    { key: "poche", label: "Main dans la poche", pose: "Debout, une main dans la poche, attitude détendue" },
+    { key: "croises", label: "Bras croisés", pose: "Debout, bras croisés sur la poitrine" },
+    { key: "marche", label: "En marche", pose: "En marche naturelle vers l'objectif" },
+    { key: "ajuste", label: "Ajuste le col", pose: "En train d'ajuster le col ou la manche du vêtement, geste naturel" },
+  ];
+
+  // Descriptions réutilisables fournies par l'utilisateur (modèles de mannequin).
+  const DESC_PRESETS = [
+    { label: "Homme streetwear", desc: "Homme 20-25 ans, peau brune, cheveux courts crépus soignés (petit afro), silhouette athlétique élancée, mâchoire marquée, regard calme et assuré." },
+    { label: "Homme urbain", desc: "Homme 20-25 ans, teint métis clair, dégradé court sur les côtés, traits fins, carrure athlétique, allure urbaine confiante." },
+    { label: "Femme rooftop", desc: "Femme 20-25 ans, peau hâlée/olive, longs cheveux bruns ondulés, traits marqués, silhouette sportive, regard direct." },
+    { label: "Homme salle", desc: "Homme 20-25 ans, teint métis, cheveux bouclés courts, allure sportive posée, look performance." },
+  ];
+
+  // Fait correspondre les livrables aux photos présentes et aux poses cochées.
+  // Un livrable déjà généré (payé) n'est jamais supprimé.
+  function syncSlots() {
+    const wanted = [];
+    if (App.state.photos.face) {
+      wanted.push({ key: "packshot-face", kind: "packshot", angle: "face", photo: "face" });
+    }
+    if (App.state.photos.dos) {
+      wanted.push({ key: "packshot-dos", kind: "packshot", angle: "dos", photo: "dos" });
+    }
+    if (App.state.photos.face) {
+      wanted.push({ key: "mannequin-face", kind: "worn", angle: "face", photo: "face" });
+    }
+    if (App.state.photos.dos) {
+      wanted.push({ key: "mannequin-dos", kind: "worn", angle: "dos", photo: "dos" });
+    }
+    for (const pk of App.state.posesExtra) {
+      const p = POSES_EXTRA.find(x => x.key === pk);
+      if (p && App.state.photos.face) {
+        wanted.push({ key: "mannequin-" + p.key, kind: "worn", angle: "face", photo: "face", pose: p.pose });
+      }
+    }
+    const old = App.state.views || [];
+    const views = [];
+    for (const w of wanted) {
+      let v = old.find(x => x.key === w.key);
+      if (!v) {
+        App.state.viewSeq = (App.state.viewSeq || 0) + 1;
+        v = {
+          id: App.state.viewSeq, key: w.key, name: w.key, role: "vue",
+          kind: w.kind, angle: w.angle, pose: w.pose || "",
+          source: null, gen: null, master: null, logos: [], logoSeq: 0, exported: false,
+        };
+      }
+      // La photo source suit l'emplacement tant que la vue n'est pas générée.
+      if (!v.gen) v.source = App.state.photos[w.photo];
+      views.push(v);
+    }
+    for (const v of old) {
+      if (v.gen && !views.some(x => x.key === v.key)) views.push(v); // payé : conservé
+    }
+    App.state.views = views;
+    if (App.state.cur >= views.length || App.state.cur < 0) {
+      const i = views.findIndex(isVue);
+      if (i >= 0) selectView(i, { force: true });
+      else App.state.cur = -1;
+    }
+    renderViewsList();
     renderViewSwitcher();
     updateGenerateButton();
   }
 
-  // Construit la grille des poses AVEC les photos du mannequin choisi
-  function buildPoseGrid(presetKey) {
-    const grid = el("pose-cards");
-    grid.innerHTML = "";
-    App.state.presetKey = presetKey;
-    App.state.poseKeys = (App.state.poseKeys || []).filter(k => poseDef(k) && k !== "auto");
-    for (const p of POSE_DEFS) {
-      const b = document.createElement("button");
-      b.type = "button";
-      const active = p.key === "auto" ? !App.state.poseKeys.length : App.state.poseKeys.includes(p.key);
-      b.className = "pose-card photo" + (active ? " active" : "");
-      b.dataset.poseKey = p.key;
-      const img = document.createElement("img");
-      // Mannequin décrit librement : pas de photos de lui — on illustre les poses
-      // avec un mannequin neutre de la galerie, en le signalant.
-      img.src = `assets/pose-${presetKey === "free" ? "h30" : presetKey}-${p.key}.jpg?v=${ASSET_V}`;
-      img.loading = "lazy";
-      if (presetKey === "free") img.style.opacity = "0.55";
-      const span = document.createElement("span");
-      span.textContent = p.label;
-      b.append(img, span);
-      b.addEventListener("click", () => {
-        const keys = App.state.poseKeys || [];
-        if (p.key === "auto") {
-          App.state.poseKeys = [];
-        } else if (keys.includes(p.key)) {
-          App.state.poseKeys = keys.filter(k => k !== p.key);
-        } else {
-          App.state.poseKeys = [...keys, p.key];
-        }
-        grid.querySelectorAll(".pose-card").forEach(x => {
-          const k = x.dataset.poseKey;
-          x.classList.toggle("active", k === "auto" ? !App.state.poseKeys.length : App.state.poseKeys.includes(k));
-        });
-        applyPoseSelection();
-      });
-      grid.appendChild(b);
+  // Prochaine phase du pipeline : packshots → porté face (validation identité) → le reste.
+  function pipelineStage() {
+    const slots = App.state.views || [];
+    const packshots = slots.filter(v => v.kind === "packshot");
+    if (!packshots.length) return null;
+    const p = packshots.filter(v => !v.gen);
+    if (p.length) return { phase: "packshots", targets: p };
+    const face = slots.find(v => v.key === "mannequin-face");
+    if (face && !face.gen) return { phase: "porte-face", targets: [face] };
+    const rest = slots.filter(v => v.kind === "worn" && !v.gen);
+    if (rest.length) return { phase: "reste", targets: rest };
+    return { phase: "fini", targets: [] };
+  }
+
+  const euro = n => (n * 0.10).toFixed(2).replace(".", ",") + " €";
+
+  function stageLabel(st) {
+    if (!st) return "Charge au moins la photo FACE";
+    if (st.phase === "packshots") {
+      return `Créer ${st.targets.length > 1 ? "les " + st.targets.length + " packshots" : "le packshot"} (~${euro(st.targets.length)})`;
     }
-    applyPoseSelection();
-  }
-
-  // ── Fond de la photo finale ──
-  const BG_DEFS = {
-    studio: { label: "Studio", hex: "#F5F5F5" },
-    white: { label: "Blanc pur", hex: "#FFFFFF" },
-    grey: { label: "Gris", hex: "#E3E3E3" },
-    custom: { label: "Personnalisé" },
-  };
-  function currentBg() {
-    const key = App.state.background || "studio";
-    return (key === "custom" && !App.state.customBg) ? "studio" : key;
-  }
-  function wireBgCards() {
-    const setActive = key => $$("#bg-cards .photo-card").forEach(x =>
-      x.classList.toggle("active", x.dataset.bg === key));
-    $$("#bg-cards .photo-card").forEach(b => b.addEventListener("click", () => {
-      if (b.dataset.bg === "custom") { el("bg-custom-file").click(); return; }
-      App.state.background = b.dataset.bg;
-      setActive(b.dataset.bg);
-      renderRecap();
-      Persist.saveSoon();
-    }));
-    el("bg-custom-file").addEventListener("change", async () => {
-      const f = el("bg-custom-file").files[0];
-      if (!f) return;
-      try {
-        const bmp = await createImageBitmap(f);
-        const c = document.createElement("canvas");
-        const sc = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
-        c.width = Math.round(bmp.width * sc);
-        c.height = Math.round(bmp.height * sc);
-        c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-        App.state.customBg = c;
-        App.state.background = "custom";
-        const th = el("bg-custom-thumb");
-        th.textContent = "";
-        th.style.background = `center / cover no-repeat url(${c.toDataURL("image/jpeg", 0.6)})`;
-        setActive("custom");
-        renderRecap();
-        Persist.saveSoon();
-      } catch {
-        alert("Image illisible — utilise un JPG, PNG ou WebP.");
-      }
-    });
-  }
-
-  // ══════════ Questionnaire de l'étape 1 ══════════
-
-  let curQ = 1;
-
-  function goQ(n) {
-    curQ = n;
-    for (let i = 1; i <= 4; i++) el("qs-" + i).classList.toggle("hidden", i !== n);
-    if (n === 4) {
-      if (!el("pose-cards").children.length) buildPoseGrid(App.state.presetKey || "h20");
-      syncFramingCards();
-      renderRecap();
+    if (st.phase === "porte-face") return "Créer la vue portée FACE (~" + euro(1) + ")";
+    if (st.phase === "reste") {
+      return `Créer ${st.targets.length > 1 ? "les " + st.targets.length + " vues restantes" : "la dernière vue"} avec ce mannequin (~${euro(st.targets.length)})`;
     }
-    updateQNav();
+    return "Toutes les vues sont générées";
   }
 
-  function updateQNav() {
-    const typeOk = !!document.querySelector("#project-type .type-card.active");
-    el("qs3-next").disabled = !typeOk || (App.state.views || []).filter(isVue).length === 0;
+  function updateGenerateButton() {
+    const st = pipelineStage();
+    const btn = el("btn-generate");
+    btn.disabled = !st || st.phase === "fini" ||
+      (st.phase !== "packshots" && !el("m-desc").value.trim());
+    btn.textContent = (st && st.phase !== "packshots" && !el("m-desc").value.trim())
+      ? "⚠ Décris d'abord le mannequin"
+      : stageLabel(st);
+    renderRecap();
   }
 
-  const FRAMING_LABELS = {
-    source: "identique à la source", full: "plein pied",
-    mid: "plan américain", low: "cadré sur le bas",
-  };
-  const TYPE_LABELS = { worn: "photo portée", flat: "produit à plat", ghost: "photo ghost" };
+  const FRAMING_LABELS = { mid: "mi-cuisses", full: "plein pied", low: "bas (sans tête)" };
 
   function renderRecap() {
-    const type = document.querySelector("#project-type .type-card.active")?.dataset.type;
-    const views = App.state.views || [];
-    const vues = views.filter(isVue).length;
-    const refs = views.filter(v => v.role === "ref").length;
-    const pants = views.filter(v => v.role === "pant").length;
-    const libs = (App.state.logoLibrary || []).length;
-    const preset = App.state.presetKey === "free"
-      ? { label: "décrit librement" + ((el("m-free") && el("m-free").value.trim()) ? " (« " + el("m-free").value.trim().slice(0, 40) + (el("m-free").value.trim().length > 40 ? "…" : "") + " »)" : ""), origine: "" }
-      : MODEL_PRESETS[App.state.presetKey];
+    const r = el("q-recap");
+    if (!r) return;
+    const slots = App.state.views || [];
+    if (!slots.length) { r.textContent = ""; return; }
+    const faits = slots.filter(v => v.gen).length;
     const parts = [
-      "Type : " + (TYPE_LABELS[type] || "non choisi"),
-      "Cadrage : " + (FRAMING_LABELS[el("project-framing").value] || "?"),
-      `${vues} vue${vues > 1 ? "s" : ""} à générer`,
+      slots.map(v => v.key).join(" · "),
+      `${slots.length} visuel${slots.length > 1 ? "s" : ""}` + (faits ? ` (${faits} généré${faits > 1 ? "s" : ""})` : ""),
+      "cadrage " + (FRAMING_LABELS[el("opt-framing").value] || "mi-cuisses"),
+      "fond " + currentBg().label.toLowerCase(),
     ];
-    parts.push("Fond : " + BG_DEFS[currentBg()].label);
-    if (preset) parts.push("Mannequin : " + preset.label + (preset.origine ? " (" + preset.origine.toLowerCase() + ")" : ""));
-    const nbPoses = selectedPoses().length;
-    if (App.state.poseLabel) parts.push("Pose" + (nbPoses > 1 ? "s" : "") + " : " + App.state.poseLabel);
-    if (refs) parts.push(`${refs} référence${refs > 1 ? "s" : ""}`);
-    if (pants) parts.push(`${pants} pantalon${pants > 1 ? "s" : ""}`);
-    if (libs) parts.push(`${libs} logo${libs > 1 ? "s" : ""} en bibliothèque`);
-    el("q-recap").textContent = "Récapitulatif — " + parts.join(" · ");
+    r.textContent = "Livrables — " + parts.join(" · ");
   }
 
-  // Reprend le questionnaire au bon endroit (retour à l'étape 1, restauration…)
-  function syncQuestionnaire() {
-    el("free-desc-box").classList.toggle("hidden", App.state.presetKey !== "free");
-    $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x.dataset.preset === App.state.presetKey));
-    const typeOk = !!document.querySelector("#project-type .type-card.active");
-    const hasVues = (App.state.views || []).filter(isVue).length > 0;
-    if (App.state.presetKey) syncPoseViews();
-    goQ(!hasVues || !typeOk ? 1 : !App.state.presetKey ? 2 : 4);
+  function syncPrepare() {
+    renderViewsList();
+    updateGenerateButton();
   }
 
-  function syncFramingCards() {
-    const v = el("project-framing").value || "source";
-    $$("#framing-cards .photo-card").forEach(b =>
-      b.classList.toggle("active", b.dataset.framing === v));
-  }
-
-  function wireFramingCards() {
-    $$("#framing-cards .photo-card").forEach(b => b.addEventListener("click", () => {
-      el("project-framing").value = b.dataset.framing;
-      el("project-framing").dispatchEvent(new Event("change"));
-      syncFramingCards();
-      renderRecap();
-    }));
-  }
-
-  function wireQuestionnaire() {
-    $$(".qnav [data-back]").forEach(b =>
-      b.addEventListener("click", () => goQ(+b.dataset.back)));
-    wireFramingCards();
-    el("qs3-next").addEventListener("click", () => goQ(2));
-    el("qsbg-next").addEventListener("click", () => goQ(4));
-    wireBgCards();
-  }
-
-  function wireProfileCards() {
-    $$("#profile-cards .pose-card").forEach(b => b.addEventListener("click", () => {
-      $$("#profile-cards .pose-card").forEach(x => x.classList.toggle("active", x === b));
-      const key = b.dataset.preset;
-      if (key === "free") {
-        App.state.presetKey = "free";
-        el("model-preset").value = "perso";
-        buildPoseGrid("free");
-        el("free-desc-box").classList.remove("hidden");
-        el("model-details").open = false;
-        renderRecap();
+  function wirePrepare() {
+    for (const key of ["face", "dos"]) {
+      const slot = el("slot-" + key);
+      const input = el("file-" + key);
+      slot.addEventListener("click", ev => {
+        if (ev.target.closest(".slot-del")) return;
+        input.click();
+      });
+      input.addEventListener("change", () => {
+        intake(input.files, f => addPhotoFile(key, f));
+        input.value = "";
+      });
+      slot.addEventListener("dragover", ev => { ev.preventDefault(); slot.classList.add("drag"); });
+      slot.addEventListener("dragleave", () => slot.classList.remove("drag"));
+      slot.addEventListener("drop", ev => {
+        ev.preventDefault();
+        slot.classList.remove("drag");
+        intake(ev.dataTransfer.files, f => addPhotoFile(key, f));
+      });
+    }
+    const chips = el("desc-chips");
+    DESC_PRESETS.forEach(p => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = p.label;
+      b.addEventListener("click", () => {
+        el("m-desc").value = p.desc;
+        updateGenerateButton();
         Persist.saveSoon();
-        if (curQ === 2) setTimeout(() => goQ(3), 220);
-        return;
-      }
-      el("free-desc-box").classList.add("hidden");
-      el("model-preset").value = key;
-      el("model-preset").dispatchEvent(new Event("change"));
-      buildPoseGrid(key);
-      if (curQ === 2) setTimeout(() => goQ(3), 220);
-    }));
-    el("m-free").addEventListener("input", () => { renderRecap(); Persist.saveSoon(); });
-  }
-
-  function wirePresets() {
-    el("model-preset").addEventListener("change", () => {
-      const key = el("model-preset").value;
-      if (key === "perso" || !key) {
-        if (key === "perso") el("model-details").open = true;
-        return;
-      }
-      const p = MODEL_PRESETS[key];
-      el("m-genre").value = p.genre;
-      el("m-origine").value = p.origine;
-      el("m-age").value = p.age;
-      el("m-morpho").value = p.morpho;
-      el("m-cheveux").value = p.cheveux;
-      el("m-barbe").value = p.barbe;
-      el("m-expression").value = p.expression;
-      Persist.saveSoon();
+      });
+      chips.appendChild(b);
     });
-  }
-
-  function wireProject() {
-    $$("#project-type .type-card").forEach(b => b.addEventListener("click", () => {
-      App.state.projectType = b.dataset.type;
-      $$("#project-type .type-card").forEach(x => x.classList.toggle("active", x === b));
-      updateGenerateButton();
-      Persist.saveSoon();
-      // Esprit questionnaire : choisir une carte fait avancer (délai = feedback tactile)
-      updateQNav();
-    }));
-    el("project-framing").addEventListener("change", () => {
-      App.state.framing = el("project-framing").value;
-      Persist.saveSoon();
+    const posesBox = el("extra-poses");
+    POSES_EXTRA.forEach(p => {
+      const lab = document.createElement("label");
+      lab.className = "chip";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = p.key;
+      cb.addEventListener("change", () => {
+        App.state.posesExtra = $$("#extra-poses input:checked").map(c => c.value);
+        syncSlots();
+        Persist.saveSoon();
+      });
+      lab.append(cb, document.createTextNode(" " + p.label));
+      posesBox.appendChild(lab);
     });
+    el("m-desc").addEventListener("input", () => { updateGenerateButton(); Persist.saveSoon(); });
+    el("opt-framing").addEventListener("change", () => { renderRecap(); Persist.saveSoon(); });
+    el("opt-bg").addEventListener("change", () => { renderRecap(); Persist.saveSoon(); });
   }
 
   // ══════════ Conversion HEIC (photos iPhone) ══════════
@@ -715,140 +502,17 @@ const App = { state: {}, refreshLogoList: null };
     }
   }
 
-  function wireSource() {
-    const dz = el("drop-source");
-    el("btn-browse").addEventListener("click", ev => { ev.preventDefault(); el("file-source").click(); });
-    el("file-source").addEventListener("change", ev => {
-      intake(ev.target.files, addViewFile);
-      ev.target.value = "";
-    });
-    dz.addEventListener("dragover", ev => { ev.preventDefault(); dz.classList.add("over"); });
-    dz.addEventListener("dragleave", () => dz.classList.remove("over"));
-    dz.addEventListener("drop", ev => {
-      ev.preventDefault(); dz.classList.remove("over");
-      intake(ev.dataTransfer.files, addViewFile);
-    });
-  }
-
   // ══════════ Génération ══════════
 
   function modelDescription() {
-    const free = (el("m-free") && el("m-free").value.trim()) || "";
-    if (App.state.presetKey === "free" && free) return free;
-    const v = id => el(id).value.trim();
-    return [v("m-genre"), v("m-origine"), v("m-age"), v("m-morpho"),
-      v("m-cheveux"), v("m-barbe"), v("m-expression")].filter(Boolean).join(", ");
+    return el("m-desc").value.trim();
   }
 
   function isMinor() {
-    const txt = (el("m-age").value + " " + el("m-genre").value + " " + ((el("m-free") && el("m-free").value) || "")).toLowerCase();
-    if (/(enfant|ado|garçon|fille|junior)/.test(txt)) return true;
+    const txt = modelDescription().toLowerCase();
+    if (/(enfant|ado|garçon|garcon|fille|junior)/.test(txt)) return true;
     const m = txt.match(/(\d{1,2})\s*ans/);
     return m ? +m[1] < 18 : false;
-  }
-
-  function buildPrompt(view, meta, extraNote) {
-    const bgKey = currentBg();
-    const desc = modelDescription() || "mannequin adulte au look neutre";
-    const pose = (view.pose || el("m-pose").value.trim()) || "pose e-commerce naturelle, différente de la photo source";
-    const acc = el("m-accessoires").value.trim();
-    const notes = el("m-notes").value.trim();
-    // L'interface est la source de vérité (évite tout état obsolète).
-    const type = document.querySelector("#project-type .type-card.active")?.dataset.type
-      || App.state.projectType || "worn";
-    const framing = el("project-framing").value || App.state.framing || "source";
-    // Cadrage « bas » : la tête est volontairement hors champ, ne pas l'exiger.
-    const headPhrase = framing === "low"
-      ? ""
-      : " La tête doit être entièrement visible, cheveux et sommet du crâne inclus, avec une petite marge au-dessus.";
-    const withRef = meta.some(m => m.kind === "identity");
-    const pantCount = meta.filter(m => m.kind === "pant").length;
-    const productCount = meta.filter(m => m.kind === "product").length;
-
-    const refPhrase = "L'image « mannequin de référence » montre le mannequin déjà validé : utilise-la comme référence absolue d'identité (silhouette, carnation, cheveux, morphologie, proportions, échelle).";
-    const lines = [];
-    if (type === "flat" || type === "ghost") {
-      const intro = type === "ghost"
-        ? "packshots « ghost » (vêtement en volume, porté par personne)"
-        : "photos du produit à plat, non porté";
-      lines.push(bgKey === "custom"
-        ? "TÂCHE : ÉDITE l'image 1 — le DÉCOR de la photo finale. AJOUTE dans ce décor un mannequin portant le produit des références, intégré de façon RÉALISTE : échelle crédible, perspective et point de vue cohérents avec le décor, lumière et ombres accordées à la scène. NE MODIFIE PAS le décor lui-même."
-        : `TÂCHE : ÉDITE l'image 1 — un fond studio VIDE (uni ${BG_DEFS[bgKey].hex}). AJOUTE sur ce fond un mannequin portant le produit des références. Le résultat est l'image 1 remplie avec le mannequin en pied de photo e-commerce — rien d'autre.`);
-      lines.push("Les autres images sont des références produit (" + intro + ") : reproduis-en fidèlement le VÊTEMENT, mais n'en réutilise NI le décor, NI la table, NI le sol, NI la composition. Aucun élément de leurs arrière-plans ne doit apparaître." + (withRef ? " " + refPhrase : ""));
-      lines.push(`Le mannequin : ${desc}.`);
-      lines.push(`VUE À PRODUIRE : « ${view.angle || "face"} ». Génère le mannequin sous cet angle, en te basant sur la face correspondante du produit. Face = mannequin vu DE FACE. Dos = mannequin vu DE DOS : on voit sa nuque, l'arrière de ses cheveux et le DOS du vêtement — son visage n'est PAS visible. Profil = vu de côté.`);
-      lines.push("ÉCHEC À ÉVITER : si le résultat montre le vêtement posé à plat, une table, du bois, un sol ou la scène d'une photo de référence, c'est RATÉ. Le vêtement est PORTÉ, en volume, sur le mannequin debout devant le fond demandé — jamais posé à plat, jamais flottant derrière lui.");
-      lines.push("Le produit peut être un ENSEMBLE présenté sur plusieurs photos (par exemple le haut et le bas d'un survêtement photographiés séparément) : le mannequin doit porter l'ensemble COMPLET, chaque pièce reproduite depuis sa photo.");
-      lines.push(`Pose : ${pose}.${headPhrase} Le panneau du vêtement montré doit être bien face caméra, plat et sans distorsion.`);
-      lines.push("Reproduis EXACTEMENT le vêtement des photos : couleur, coupe, matière, coutures, motifs, longueur, détails et proportions strictement identiques. N'invente aucun élément absent des photos.");
-      lines.push("CONSTRUCTION DU VÊTEMENT : analyse les panneaux et zones de couleur, puis place chaque zone à l'endroit anatomiquement correct une fois le vêtement PORTÉ. Piège de la CAPUCHE : sur une photo à plat, la capuche étalée derrière le col peut sembler colorer les épaules — portée, elle pend derrière le cou et dans le dos. NE transforme JAMAIS la capuche en empiècement d'épaules ou de manches : les épaules et les manches gardent EXACTEMENT la couleur de leurs propres panneaux visibles sur la photo. Même vigilance pour un dos d'une autre couleur qui dépasse sur les côtés : il n'apparaît pas sur la face portée.");
-      lines.push("Aucun accessoire : pas de lunettes, bijoux, montre, casquette, sac ni objet tenu." + (acc ? ` Consigne spécifique : ${acc}.` : ""));
-    } else {
-      lines.push(withRef
-        ? "Photo e-commerce studio. La première image est la photo produit à modifier (une autre vue du même produit : dos, profil ou autre angle). " + refPhrase + " Le visage peut être peu visible selon l'angle, mais tout doit correspondre au même mannequin."
-        : "Photo e-commerce studio. Modifie cette photo produit.");
-      lines.push(`Remplace le mannequin par : ${desc}.`);
-      lines.push(`Nouvelle pose : ${pose}. Respecte cependant l'angle et l'orientation du buste propres à cette photo source.${headPhrase}`);
-      lines.push("Retire tous les accessoires visibles : lunettes, bijoux, montre, casquette, sac, écouteurs, gants et objets tenus."
-        + (acc ? ` Consigne spécifique : ${acc}.` : "")
-        + " Chaque membre qui touchait un accessoire retiré doit reprendre une pose naturelle et équilibrée.");
-      lines.push("Conserve EXACTEMENT le vêtement porté : coupe, matière, couleur, coutures, zip, col, manches, détails réfléchissants et proportions identiques à la source.");
-      lines.push("Le buste et le panneau poitrine doivent rester dans le même plan, avec la même orientation et la même inclinaison caméra que la photo source. Pas de rotation ni de redressement du buste.");
-    }
-
-    // Rôles explicites et numérotés de chaque image fournie.
-    const roleTxt = {
-      base: bgKey === "custom"
-        ? "le DÉCOR de la photo finale — c'est la base à éditer : place le mannequin dedans sans modifier le décor."
-        : "le FOND STUDIO VIDE de la photo finale — c'est la base à éditer : place le mannequin dessus, ne change ni la couleur ni l'uniformité du fond.",
-      main: (type === "flat" || type === "ghost")
-        ? "la référence produit principale (la face du vêtement correspondant à la vue à produire). RÉFÉRENCE UNIQUEMENT : ne pas retoucher, ne pas réutiliser son décor ni sa composition."
-        : "la photo produit source à transformer",
-      identity: "le mannequin de référence DÉJÀ VALIDÉ. CONTRAINTE PRIORITAIRE : le résultat doit montrer EXACTEMENT LA MÊME PERSONNE — même visage, même coupe et couleur de cheveux, même carnation, même morphologie, même âge. ATTENTION : cette image sert UNIQUEMENT à l'identité de la personne. NE RECOPIE PAS cette image : pas sa pose, pas son angle de vue, pas sa composition — et SURTOUT PAS son cadrage : seul le CADRAGE demandé dans les consignes fait foi, même s'il diffère de cette image. Le résultat correspond à l'image 1 et à la VUE À PRODUIRE, jamais à cette image de référence.",
-      pant: "le PANTALON que le mannequin doit porter — reproduis-le à l'identique (couleur, coupe, matière, coutures, détails), correctement ajusté au bas du corps.",
-      product: "autre face du MÊME produit (référence vêtement uniquement — dos, côtés, autres pièces d'un ensemble). Ne pas la recopier telle quelle.",
-      decor: "le DÉCOR à utiliser comme NOUVEAU FOND : remplace tout l'arrière-plan de la photo par ce décor, avec une intégration réaliste (échelle, perspective, lumière, ombres de contact).",
-    };
-    lines.push("Rôles des images fournies :\n- " +
-      meta.map((m, i) => `Image ${i + 1}${m.name ? ` (« ${m.name} »)` : ""} : ${roleTxt[m.kind]}`).join("\n- "));
-
-    if (pantCount > 0) {
-      lines.push("PANTALON : même si la photo source est coupée à la taille ou ne montre pas le bas du corps, le mannequin doit porter le pantalon fourni en référence, reproduit exactement. Ne pas inventer un autre bas.");
-    }
-
-    lines.push(
-      "INTÉGRATION NATURELLE : AUCUN liseré, halo ou contour blanc autour du mannequin — pas d'effet d'autocollant, de détourage ou de silhouette collée. Le fond touche directement les cheveux, la peau et le vêtement, avec au plus une ombre de contact très douce sous les pieds.");
-    lines.push(
-      "FIDÉLITÉ ABSOLUE AU PRODUIT : reproduis les couleurs EXACTES du vêtement (teinte, saturation, luminosité) telles qu'elles apparaissent sur les photos — sans embellir, sans réchauffer ni adoucir, sans modifier la balance des blancs. Reproduis aussi TOUS les éléments graphiques : bandes, traits, lignes contrastées, empiècements, panneaux de couleur, surpiqûres — n'en supprime, déplace ni simplifie AUCUN, même petit ou discret.");
-    lines.push(
-      "IMPORTANT : supprime TOUS les logos, écussons, textes, sponsors et marquages du vêtement (pantalon compris). Inspecte et nettoie chaque zone : poitrine gauche et droite, les deux manches, col, côtés, bas du vêtement, ceinture et jambes. Les petits marquages brodés ou ton sur ton (blanc sur gris, gris sur gris) doivent disparaître COMPLÈTEMENT — sans trace, sans relief, sans zone floue ni logo fantôme. Le textile doit être parfaitement vierge et continu.",
-      bgKey === "custom"
-        ? "Le décor fourni est le SEUL arrière-plan de l'image finale : la scène de la photo source (table, sol, objets, pièce, vêtement posé, ancien fond) doit TOTALEMENT disparaître."
-        : `Fond studio uni exactement ${BG_DEFS[bgKey].hex} sur toute l'image, sans gradient, ombre portée, texture, horizon, vignettage ni variation de teinte. Le décor de la photo source (table, sol, objets, pièce, vêtement posé) doit TOTALEMENT disparaître : rien de la scène d'origine ne subsiste sur le résultat.`,
-      "BORDS ET BAS DE L'IMAGE impeccables : le fond reste uniforme jusqu'aux quatre bords et dans les coins (aucun sol, parquet, mur ou objet). Si un short ou un bas neutre est visible en bas de l'image, il est NET, uni et sans tache, flou ni artefact — comme le reste de la photo.",
-    );
-    const creation = type === "flat" || type === "ghost";
-    const formatPhrase = creation
-      ? "Format de sortie : portrait vertical 3:4, photo studio e-commerce."
-      : "Conserve le format (ratio) de la première image.";
-    if (framing === "full") {
-      lines.push("CADRAGE OBLIGATOIRE : plein pied — le mannequin est visible EN ENTIER, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Rien n'est coupé. " + formatPhrase);
-    } else if (framing === "mid") {
-      lines.push("CADRAGE OBLIGATOIRE : plan américain e-commerce — l'image est COUPÉE À MI-CUISSE. La tête est entièrement visible en haut ; le bas de l'image s'arrête à mi-cuisse. Genoux, mollets et pieds sont HORS CHAMP, coupés par le bord de l'image. INTERDIT : mannequin en pied, pieds ou chaussures visibles. " + formatPhrase);
-    } else if (framing === "low") {
-      lines.push("CADRAGE : photo e-commerce de PANTALON — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres sauf consigne contraire). La tête et le visage sont HORS cadre, coupés au niveau du torse, comme une photo produit de bas. Le pantalon est le sujet principal, visible en entier de la ceinture aux chevilles. En haut, le mannequin porte un t-shirt uni neutre (sauf consigne contraire). " + formatPhrase);
-    } else if (creation) {
-      lines.push("CADRAGE : de la tête à mi-cuisse environ, cadrage e-commerce standard centré sur le produit. " + formatPhrase);
-    } else {
-      lines.push("Conserve le cadrage et le format de la première image." +
-        (pantCount > 0 ? " Si la source est coupée à la taille, élargis légèrement vers le bas pour montrer le haut du pantalon." : ""));
-    }
-    if (isMinor()) {
-      lines.push("Contexte : photo catalogue e-commerce de textile enfant/adolescent. Le mannequin mineur est entièrement habillé, dans une pose catalogue naturelle et sportive, avec une expression neutre adaptée à son âge. Aucune sexualisation, aucune pose suggestive, aucune mise en scène adulte. Cadrage commercial centré sur le produit.");
-    }
-    if (notes) lines.push("Consignes supplémentaires : " + notes);
-    if (extraNote) lines.push("Correction demandée après contrôle : " + extraNote);
-    return lines.join("\n");
   }
 
   function canvasToB64(canvas, maxDim) {
@@ -866,264 +530,96 @@ const App = { state: {}, refreshLogoList: null };
     return { mimeType: "image/jpeg", data: url.split(",")[1] };
   }
 
-  // Prépare une photo produit avant l'envoi : recadrage serré sur le vêtement
-  // (le décor — bureau, table, sol — disparaît presque entièrement du cadre),
-  // puis neutralisation du fond restant. Le modèle ne peut plus s'ancrer sur la
-  // scène de la photo. Les couleurs du vêtement ne sont JAMAIS modifiées ; en
-  // cas de doute la fonction rend la photo telle quelle.
-  function neutralizeDecor(canvas) {
-    const maxDim = 1024;
-    const sc = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
-    const W = Math.round(canvas.width * sc), H = Math.round(canvas.height * sc);
+  // ── Prompts du pipeline ──
+
+  function framingLines(framing) {
+    if (framing === "full") {
+      return "CADRAGE OBLIGATOIRE : plein pied — le mannequin est visible EN ENTIER, de la tête aux chaussures (baskets blanches neutres sauf consigne contraire), avec une petite marge au-dessus de la tête et sous les pieds. Rien n'est coupé.";
+    }
+    if (framing === "low") {
+      return "CADRAGE OBLIGATOIRE : photo e-commerce de BAS — cadrée du bas du torse jusqu'aux pieds, chaussures comprises (baskets neutres). La tête et le visage sont HORS cadre, coupés au niveau du torse. Le bas du corps est le sujet principal. En haut, t-shirt uni neutre sauf consigne contraire.";
+    }
+    return "CADRAGE OBLIGATOIRE : l'image est COUPÉE À MI-CUISSES. La tête est entièrement visible en haut, cheveux compris, avec une petite marge ; le bas de l'image s'arrête à mi-cuisses. Genoux, mollets et pieds sont HORS CHAMP, coupés par le bord de l'image. INTERDIT : mannequin en pied, pieds ou chaussures visibles.";
+  }
+
+  function buildPrompt(view, hasIdentity, extraNote) {
+    const bg = currentBg();
+    const lines = [];
+    if (view.kind === "packshot") {
+      lines.push(
+        `TÂCHE : PACKSHOT e-commerce. ÉDITE l'image 1 — un canevas vide uni ${bg.hex}, format portrait 4:5. Place dessus le VÊTEMENT SEUL visible sur l'image 2, à plat, parfaitement centré, redressé et symétrique, entier avec de petites marges uniformes.`,
+        view.angle === "dos"
+          ? "C'est la face ARRIÈRE du produit : montre le DOS du vêtement exactement comme sur l'image 2."
+          : "C'est la face AVANT du produit, exactement comme sur l'image 2.",
+        "AUCUN cintre, mannequin, corps, main ou accessoire, et AUCUN élément du décor de l'image 2 (table, sol, planches, pièce, objets) : seul le vêtement apparaît, posé sur le fond uni.",
+        "Si l'image 2 montre le vêtement porté ou en volume, représente-le SEUL, à plat.",
+        "Lisse les gros plis de manutention mais conserve la texture naturelle du tissu et les ombres internes du vêtement.",
+        "FIDÉLITÉ ABSOLUE : couleurs exactes (teinte, saturation, luminosité), coupe, proportions, coutures, zips, empiècements, panneaux de couleur, cordons — rien d'inventé, rien d'omis, rien de simplifié.",
+        "SUPPRIME tous les logos, textes, écussons, étiquettes et marquages du vêtement (ils seront reposés ensuite depuis les pixels originaux) : le textile est parfaitement vierge, sans trace, relief ni logo fantôme.",
+        `Fond uni exactement ${bg.hex} sur toute l'image, jusqu'aux bords et dans les coins, sans ombre portée, dégradé, texture ni vignettage.`
+      );
+    } else {
+      lines.push(
+        `TÂCHE : PHOTO E-COMMERCE PORTÉE. ÉDITE l'image 1 — un fond studio vide uni ${bg.hex}, format portrait 4:5. AJOUTE un mannequin portant EXACTEMENT le vêtement de l'image 2.`,
+        "L'image 2 est le PACKSHOT de référence : c'est la référence ABSOLUE du produit — reproduis couleurs, coupe, matière, construction, coutures, empiècements et détails à l'IDENTIQUE. N'invente aucun élément absent du packshot.",
+        "CONSTRUCTION DU VÊTEMENT : replace chaque panneau de couleur à sa position anatomique une fois le vêtement porté. Une capuche pend derrière le cou et le dos — ne la transforme jamais en couleur d'épaules ou de manches. La géométrie portée diffère naturellement du vêtement à plat : ne pas plaquer la largeur totale des manches du packshot sur le corps.",
+        `Le mannequin : ${modelDescription()}.`,
+        view.angle === "dos"
+          ? "VUE : DE DOS — on voit la nuque, l'arrière des cheveux et le DOS du vêtement ; le visage est INVISIBLE, la tête tournée dans le même sens que le corps, bras relâchés le long du corps."
+          : "VUE : DE FACE — torse frontal, épaules équilibrées, regard vers l'objectif.",
+        view.pose
+          ? `Pose : ${view.pose}.`
+          : "Pose naturelle de catalogue : bras et mains naturels, sans raideur.",
+        framingLines(el("opt-framing").value)
+      );
+      if (hasIdentity) {
+        lines.push("CONTRAINTE PRIORITAIRE : l'image 3 montre le mannequin DÉJÀ VALIDÉ — le résultat montre EXACTEMENT LA MÊME PERSONNE : même visage, mêmes cheveux (coupe, couleur, volume), même carnation, même morphologie, même largeur d'épaules, même pantalon, même échelle et même éclairage. NE RECOPIE PAS sa pose, son angle ni son cadrage : seuls la VUE et le CADRAGE demandés ci-dessus font foi.");
+      }
+      lines.push(
+        "Si le produit est un haut et qu'aucun bas n'apparaît sur le packshot : pantalon noir sobre sans marque. Aucun accessoire, bijou, montre, casquette ni objet tenu.",
+        "AUCUN logo, texte, écusson ou marquage généré sur le vêtement : il est porté VIERGE (les logos originaux seront reposés ensuite pixel pour pixel).",
+        "INTÉGRATION NATURELLE : aucun liseré, halo ou contour clair autour du mannequin — pas d'effet d'autocollant ni de détourage. Le fond touche directement les cheveux, la peau et le vêtement, avec au plus une ombre de contact très douce.",
+        `Fond uni exactement ${bg.hex} sur toute l'image, sans dégradé, ombre portée marquée, horizon ni vignettage.`
+      );
+      if (isMinor()) {
+        lines.push("Contexte : photo catalogue e-commerce de textile enfant/adolescent. Le mannequin mineur est entièrement habillé, dans une pose catalogue naturelle, expression neutre adaptée à son âge. Aucune sexualisation, aucune mise en scène adulte.");
+      }
+    }
+    const notes = el("m-notes").value.trim();
+    if (notes) lines.push("Consignes supplémentaires : " + notes);
+    if (extraNote) lines.push("Correction demandée après contrôle : " + extraNote);
+    return lines.join("\n");
+  }
+
+  // ── Appel Gemini pour une vue ──
+
+  function baseCanvas() {
     const c = document.createElement("canvas");
-    c.width = W; c.height = H;
+    c.width = 1536; c.height = 1920; // portrait 4:5
     const ctx = c.getContext("2d");
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(canvas, 0, 0, W, H);
-    const d = ctx.getImageData(0, 0, W, H).data;
-
-    // Couleurs de fond : médiane de chaque coin (murs, moquette, table peuvent différer).
-    const PATCH = Math.max(16, (Math.min(W, H) * 0.06) | 0);
-    const cornerMed = (x0, y0) => {
-      const r = [], g = [], b = [];
-      for (let y = y0; y < y0 + PATCH; y++) {
-        for (let x = x0; x < x0 + PATCH; x++) {
-          const i = (y * W + x) * 4;
-          r.push(d[i]); g.push(d[i + 1]); b.push(d[i + 2]);
-        }
-      }
-      const m = a => a.sort((u, v) => u - v)[a.length >> 1];
-      return [m(r), m(g), m(b)];
-    };
-    const bgs = [
-      cornerMed(0, 0), cornerMed(W - PATCH, 0),
-      cornerMed(0, H - PATCH), cornerMed(W - PATCH, H - PATCH),
-    ];
-    const TOL = 95;
-    const isBg = p => {
-      const i = p * 4;
-      for (const [r, g, b] of bgs) {
-        if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b) < TOL) return true;
-      }
-      return false;
-    };
-
-    // Boîte du vêtement : lignes/colonnes contenant assez de pixels non-fond.
-    const rowHits = new Int32Array(H), colHits = new Int32Array(W);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        if (!isBg(y * W + x)) { rowHits[y]++; colHits[x]++; }
-      }
-    }
-    const firstIdx = (hits, len, thr) => { for (let i = 0; i < len; i++) if (hits[i] > thr) return i; return -1; };
-    const lastIdx = (hits, len, thr) => { for (let i = len - 1; i >= 0; i--) if (hits[i] > thr) return i; return -1; };
-    let y0 = firstIdx(rowHits, H, W * 0.02), y1 = lastIdx(rowHits, H, W * 0.02);
-    let x0 = firstIdx(colHits, W, H * 0.02), x1 = lastIdx(colHits, W, H * 0.02);
-    let cw = W, chh = H, ox = 0, oy = 0;
-    let out = c, octx = ctx;
-    if (y0 >= 0 && x0 >= 0) {
-      const mx = ((x1 - x0) * 0.04) | 0, my = ((y1 - y0) * 0.04) | 0;
-      x0 = Math.max(0, x0 - mx); x1 = Math.min(W - 1, x1 + mx);
-      y0 = Math.max(0, y0 - my); y1 = Math.min(H - 1, y1 + my);
-      const area = (x1 - x0) * (y1 - y0) / (W * H);
-      if (area > 0.10 && area < 0.96) {
-        cw = x1 - x0 + 1; chh = y1 - y0 + 1; ox = x0; oy = y0;
-        out = document.createElement("canvas");
-        out.width = cw; out.height = chh;
-        octx = out.getContext("2d");
-        octx.drawImage(c, x0, y0, cw, chh, 0, 0, cw, chh);
-      }
-    }
-
-    // Neutralisation du fond restant dans le cadre recadré.
-    const id2 = octx.getImageData(0, 0, cw, chh);
-    const d2 = id2.data;
-    const isBg2 = p => {
-      const i = p * 4;
-      for (const [r, g, b] of bgs) {
-        if (Math.abs(d2[i] - r) + Math.abs(d2[i + 1] - g) + Math.abs(d2[i + 2] - b) < TOL) return true;
-      }
-      return false;
-    };
-    const STEP = 24;
-    const stepOk = (a, b) => {
-      const i = a * 4, j = b * 4;
-      return Math.abs(d2[i] - d2[j]) + Math.abs(d2[i + 1] - d2[j + 1]) + Math.abs(d2[i + 2] - d2[j + 2]) < STEP;
-    };
-    const seen = new Uint8Array(cw * chh);
-    const queue = new Int32Array(cw * chh);
-    let head = 0, tail = 0;
-    const seed = p => { if (!seen[p] && isBg2(p)) { seen[p] = 1; queue[tail++] = p; } };
-    const grow = (from, p) => { if (!seen[p] && isBg2(p) && stepOk(from, p)) { seen[p] = 1; queue[tail++] = p; } };
-    for (let x = 0; x < cw; x++) { seed(x); seed((chh - 1) * cw + x); }
-    for (let y = 0; y < chh; y++) { seed(y * cw); seed(y * cw + cw - 1); }
-    while (head < tail) {
-      const p = queue[head++];
-      const x = p % cw, y = (p / cw) | 0;
-      if (x > 0) grow(p, p - 1);
-      if (x < cw - 1) grow(p, p + 1);
-      if (y > 0) grow(p, p - cw);
-      if (y < chh - 1) grow(p, p + cw);
-    }
-    // Le cœur de l'image touché = vêtement mangé : on garde le recadrage, pas la neutralisation.
-    let central = 0;
-    const bx0 = (cw * 0.3) | 0, bx1 = (cw * 0.7) | 0, by0 = (chh * 0.3) | 0, by1 = (chh * 0.7) | 0;
-    for (let y = by0; y < by1; y++) {
-      for (let x = bx0; x < bx1; x++) if (seen[y * cw + x]) central++;
-    }
-    const applied = central / ((bx1 - bx0) * (by1 - by0)) <= 0.25;
-    if (applied) {
-      for (let p = 0; p < cw * chh; p++) {
-        if (seen[p]) { const i = p * 4; d2[i] = 245; d2[i + 1] = 245; d2[i + 2] = 245; }
-      }
-      octx.putImageData(id2, 0, 0);
-    }
-    // Score de propreté : l'anneau extérieur fin (la marge du recadrage, hors
-    // vêtement par construction) doit être débarrassé du décor. S'il y reste des
-    // pixels de scène (grain de plancher, moquette…), le nettoyage local est
-    // jugé insuffisant → détourage IA.
-    const ring = Math.max(6, (Math.min(cw, chh) * 0.02) | 0);
-    let frame = 0, dirty = 0;
-    for (let y = 0; y < chh; y++) {
-      for (let x = 0; x < cw; x++) {
-        if (x >= ring && x < cw - ring && y >= ring && y < chh - ring) continue;
-        frame++;
-        const p = y * cw + x;
-        if (!(applied && seen[p]) && !isBg2(p)) dirty++;
-      }
-    }
-    out.__cleaned = applied && dirty / frame < 0.15;
-    return out;
+    ctx.fillStyle = currentBg().hex;
+    ctx.fillRect(0, 0, c.width, c.height);
+    return c;
   }
 
-  // Détourage IA d'une photo de référence trop difficile pour le nettoyage local
-  // (sol texturé, décor chargé) : une génération dédiée (~0,09 €), une seule fois
-  // par photo — le résultat est mis en cache et sauvegardé avec le projet.
-  async function ensureCleanRef(v, session) {
-    const local = neutralizeDecor(v.source);
-    if (local.__cleaned) return local;
-    if (v.cleanRef) return v.cleanRef;
-    showBusy(`Photo « ${v.name} » : décor complexe — détourage IA de la référence (~0,09 €, une seule fois)…`);
-    try {
-      const resp = await fetch(GENERATE_FN_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + session.access_token,
-          "apikey": SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: [
-            "TÂCHE : détourage produit e-commerce.",
-            "Reproduis ce vêtement EXACTEMENT — même angle de prise de vue, même position, mêmes plis, mêmes couleurs (teinte, saturation, luminosité STRICTEMENT identiques), mêmes coutures, zips, logos et textes — mais posé sur un FOND UNI #F5F5F5 qui remplace TOUT le décor (table, sol, planches, pièce, objets).",
-            "Cadre serré sur le vêtement avec une petite marge uniforme.",
-            "AUCUNE autre modification : pas d'embellissement, pas de correction des plis, pas de changement de forme ni de matière.",
-          ].join("\n"),
-          images: [canvasToB64(v.source, 1024)],
-          debug: { op: "cleanref", version: document.getElementById("app-version")?.textContent || "?", type: "ref", framing: "-", angle: v.angle || "-", creation: false, n: 1 },
-        }),
-      });
-      const out2 = await resp.json();
-      if (!resp.ok) throw new Error(out2.error || resp.status);
-      const img = new Image();
-      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = `data:${out2.image.mimeType};base64,${out2.image.data}`; });
-      const c2 = document.createElement("canvas");
-      c2.width = img.naturalWidth; c2.height = img.naturalHeight;
-      c2.getContext("2d").drawImage(img, 0, 0);
-      v.cleanRef = c2;
-      Persist.saveSoon();
-      return c2;
-    } catch (e) {
-      console.warn("Détourage IA impossible, envoi de la photo nettoyée localement :", e);
-      return local;
-    }
-  }
-
-  function isCreationProject() {
-    const t = document.querySelector("#project-type .type-card.active")?.dataset.type;
-    return t === "flat" || t === "ghost";
-  }
-
-  function identityRef(excludeView) {
-    for (const v of App.state.views) {
-      if (v !== excludeView && v.gen) return v.gen;
-    }
-    return null;
-  }
-
-  // Photo du mannequin prédéfini choisi (galerie de l'étape 4), utilisée comme
-  // référence d'identité dès la PREMIÈRE génération : le résultat montre bien
-  // la personne présentée dans l'interface, pas seulement quelqu'un qui lui ressemble.
-  const presetRefCache = {};
-  function presetRefCanvas() {
-    const key = App.state.presetKey;
-    if (!key || key === "perso" || !MODEL_PRESETS[key]) return Promise.resolve(null);
-    if (presetRefCache[key]) return Promise.resolve(presetRefCache[key]);
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement("canvas");
-        c.width = img.naturalWidth; c.height = img.naturalHeight;
-        c.getContext("2d").drawImage(img, 0, 0);
-        presetRefCache[key] = c;
-        resolve(c);
-      };
-      img.onerror = () => resolve(null);
-      img.src = `assets/profil-${key}.jpg?v=${ASSET_V}`;
-    });
-  }
+  function slot(key) { return (App.state.views || []).find(v => v.key === key) || null; }
 
   async function generateView(view, extraNote) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Session expirée, reconnecte-toi.");
-    const ref = identityRef(view) || await presetRefCanvas();
-    const creation = isCreationProject();
-    // Ordre des images : [fond studio vierge en création], source, [identité],
-    // pantalons, autres photos produit (plafond de 5 images).
-    // Astuce anti-décor : le modèle « édite » toujours la première image reçue —
-    // en mode création on lui donne donc un fond studio VIDE comme base à éditer.
-    const meta = [];
-    const images = [];
-    const bgKey = currentBg();
-    if (creation) {
-      const base = document.createElement("canvas");
-      base.width = 1536; base.height = 2048; // portrait 3:4
-      const bctx = base.getContext("2d");
-      if (bgKey === "custom") {
-        // décor personnalisé : recadré « cover » dans le portrait 3:4
-        const bg = App.state.customBg;
-        const sc = Math.max(base.width / bg.width, base.height / bg.height);
-        bctx.imageSmoothingQuality = "high";
-        bctx.drawImage(bg, (base.width - bg.width * sc) / 2, (base.height - bg.height * sc) / 2,
-          bg.width * sc, bg.height * sc);
-      } else {
-        bctx.fillStyle = BG_DEFS[bgKey].hex;
-        bctx.fillRect(0, 0, base.width, base.height);
+    const images = [canvasToB64(baseCanvas(), 2048)];
+    let hasIdentity = false;
+    if (view.kind === "packshot") {
+      images.push(canvasToB64(view.source, 1536));
+    } else {
+      const pack = slot("packshot-" + view.angle) || slot("packshot-face");
+      if (!pack || !pack.gen) throw new Error("Génère et valide d'abord le packshot " + view.angle + ".");
+      images.push(canvasToB64(pack.gen, 1536));
+      const face = slot("mannequin-face");
+      if (face && face.gen && view.key !== "mannequin-face") {
+        images.push(canvasToB64(face.gen, 1024));
+        hasIdentity = true;
       }
-      images.push(canvasToB64(base, 2048));
-      meta.push({ kind: "base" });
-    }
-    images.push(canvasToB64(creation ? await ensureCleanRef(view, session) : view.source, creation ? 1024 : 1536));
-    meta.push({ kind: creation ? "product" : "main", name: creation ? view.name : undefined });
-    if (ref) { images.push(canvasToB64(ref, 1024)); meta.push({ kind: "identity" }); }
-    if (!creation && bgKey === "custom") {
-      // photo portée + décor personnalisé : le décor part en référence dédiée
-      images.push(canvasToB64(App.state.customBg, 1024));
-      meta.push({ kind: "decor" });
-    }
-    // Ne jamais envoyer deux fois la même photo : les vues dérivées (multi-poses)
-    // partagent le canvas source de leur vue d'origine.
-    const seenSources = new Set([view.source]);
-    const others = App.state.views.filter(v => {
-      if (v === view || seenSources.has(v.source)) return false;
-      seenSources.add(v.source);
-      return true;
-    }).sort((a, b) => (a.role === "pant" ? -1 : 0) - (b.role === "pant" ? -1 : 0));
-    for (const v of others) {
-      if (images.length >= 5) break;
-      // Les références (pantalon, autres faces) sont nettoyées dans les deux modes.
-      images.push(canvasToB64(await ensureCleanRef(v, session), 1024));
-      meta.push({ kind: v.role === "pant" ? "pant" : "product", name: v.name });
     }
     const resp = await fetch(GENERATE_FN_URL, {
       method: "POST",
@@ -1133,17 +629,18 @@ const App = { state: {}, refreshLogoList: null };
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: buildPrompt(view, meta, extraNote),
+        prompt: buildPrompt(view, hasIdentity, extraNote),
         images,
-        aspectRatio: isCreationProject() ? "3:4" : undefined,
+        aspectRatio: "4:5",
         debug: {
           op: extraNote ? "regen" : "gen",
           version: document.getElementById("app-version")?.textContent || "?",
-          type: document.querySelector("#project-type .type-card.active")?.dataset.type || "aucun",
-          framing: el("project-framing").value,
-          angle: view.angle || "?",
-          creation: isCreationProject(),
+          type: view.kind,
+          framing: el("opt-framing").value,
+          angle: view.angle,
+          creation: true,
           n: images.length,
+          vue: view.key,
         },
       }),
     });
@@ -1155,69 +652,45 @@ const App = { state: {}, refreshLogoList: null };
       img.onload = res; img.onerror = rej;
       img.src = `data:${out.image.mimeType};base64,${out.image.data}`;
     });
-    // Photo portée : la génération reprend les dimensions exactes de la source.
-    // Projet à plat/ghost : c'est une CRÉATION — on garde le format natif (portrait 3:4),
-    // pas celui de la photo de référence posée sur une table.
     const gen = document.createElement("canvas");
-    if (isCreationProject()) {
-      gen.width = img.naturalWidth;
-      gen.height = img.naturalHeight;
-      gen.getContext("2d").drawImage(img, 0, 0);
-    } else {
-      // Recaler sur les dimensions de la source SEULEMENT si le ratio correspond :
-      // sinon on écraserait l'image (mannequin étiré). En cas d'écart (ex. plein
-      // pied demandé depuis une photo plus serrée), on garde le format natif —
-      // le placement des logos sait déjà recentrer une proposition hors cadre.
-      const srcRatio = view.source.width / view.source.height;
-      const genRatio = img.naturalWidth / img.naturalHeight;
-      if (Math.abs(genRatio - srcRatio) / srcRatio < 0.02) {
-        gen.width = view.source.width;
-        gen.height = view.source.height;
-        const ctx = gen.getContext("2d");
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, gen.width, gen.height);
-      } else {
-        gen.width = img.naturalWidth;
-        gen.height = img.naturalHeight;
-        gen.getContext("2d").drawImage(img, 0, 0);
-      }
-    }
+    gen.width = img.naturalWidth;
+    gen.height = img.naturalHeight;
+    gen.getContext("2d").drawImage(img, 0, 0);
     view.gen = gen;
     view.exported = false;
     if (view === currentView()) App.state.genCanvas = gen;
   }
 
   async function generateAll() {
-    const vues = (App.state.views || []).filter(isVue);
-    if (!vues.length) return;
-    const hasIdentity = vues.some(v => v.gen);
-    // Sans mannequin validé : générer UNIQUEMENT la première vue, la faire valider,
-    // puis générer les autres avec cette référence — sinon chaque vue invente son mannequin.
-    const targets = hasIdentity
-      ? vues.filter(v => !v.gen)
-      : vues.filter(v => !v.gen).slice(0, 1);
-    if (!targets.length) return;
+    const st = pipelineStage();
+    if (!st || !st.targets.length) return;
+    if (st.phase !== "packshots" && !modelDescription()) { goStep(1); updateGenerateButton(); return; }
     el("gen-msg").className = "msg";
     el("gen-msg").textContent = "";
     let done = 0;
     let generated = null;
     try {
-      for (const v of targets) {
+      for (const v of st.targets) {
         done++;
-        showBusy(`Génération ${done}/${targets.length} — vue « ${v.name} »… (10 à 30 s)`);
+        showBusy(`Génération ${done}/${st.targets.length} — « ${v.key} »… (10 à 30 s)`);
         await generateView(v);
         generated = v;
         await Persist.save(); // chaque image payée est sauvegardée immédiatement
-        renderViewsList();
+        renderViewSwitcher();
         updateGenerateButton();
       }
-      selectView(App.state.views.indexOf(generated ?? targets[0]), { force: true });
+      selectView(App.state.views.indexOf(generated ?? st.targets[0]), { force: true });
       goStep(2);
-      const remaining = vues.filter(v => !v.gen).length;
-      if (!hasIdentity && remaining > 0) {
-        el("gen-msg").className = "msg ok";
+      const next = pipelineStage();
+      el("gen-msg").className = "msg ok";
+      if (st.phase === "packshots") {
         el("gen-msg").textContent =
-          `Mannequin créé. Valide cette vue (identité, pose, vêtement) puis clique sur « Générer les ${remaining} vue(s) restante(s) » : elles reprendront exactement ce mannequin.`;
+          "Packshots créés. Contrôle-les (couleurs, construction, aucune trace de logo), régénère si besoin, puis clique sur « " + stageLabel(next) + " ».";
+      } else if (st.phase === "porte-face") {
+        el("gen-msg").textContent =
+          "Vue portée FACE créée. Valide le mannequin (visage, vêtement conforme au packshot), puis clique sur « " + stageLabel(next) + " » : les autres vues reprendront exactement cette personne.";
+      } else {
+        el("gen-msg").textContent = "Toutes les vues sont générées. Passe aux logos, puis au placement et à l'export.";
       }
     } catch (e) {
       el("gen-msg").className = "msg error";
@@ -1226,17 +699,16 @@ const App = { state: {}, refreshLogoList: null };
     } finally {
       hideBusy();
       updateGenerateButton();
-      renderViewsList();
       updateStep2Buttons();
     }
   }
 
   function updateStep2Buttons() {
-    const vues = (App.state.views || []).filter(isVue);
-    const remaining = vues.filter(v => !v.gen).length;
+    const st = pipelineStage();
     const btn = el("btn-generate-rest");
-    btn.classList.toggle("hidden", remaining === 0 || !vues.some(v => v.gen));
-    btn.textContent = `Générer les ${remaining} vue(s) restante(s) avec ce mannequin`;
+    const pending = st && st.phase !== "fini";
+    btn.classList.toggle("hidden", !pending);
+    if (pending) btn.textContent = stageLabel(st);
   }
 
   async function regenerateCurrent() {
@@ -1252,9 +724,10 @@ const App = { state: {}, refreshLogoList: null };
       await Persist.save();
       renderCompare();
       renderViewSwitcher();
-      const firstVue = App.state.views.findIndex(isVue);
-      if (App.state.cur === firstVue && App.state.views.some((x, i) => i !== firstVue && isVue(x) && x.gen)) {
-        el("gen-msg").textContent = "Vue de référence régénérée — les autres vues déjà générées gardent l'ancienne identité ; régénère-les si besoin.";
+      if (v.kind === "packshot" && App.state.views.some(x => x.kind === "worn" && x.gen)) {
+        el("gen-msg").textContent = "Packshot régénéré — les vues portées déjà créées reposent sur l'ancien : régénère-les si le produit a changé.";
+      } else if (v.key === "mannequin-face" && App.state.views.some(x => x.kind === "worn" && x.key !== "mannequin-face" && x.gen)) {
+        el("gen-msg").textContent = "Vue d'identité régénérée — les autres vues portées gardent l'ancien mannequin ; régénère-les si besoin.";
       }
     } catch (e) {
       el("gen-msg").className = "msg error";
@@ -1664,8 +1137,65 @@ const App = { state: {}, refreshLogoList: null };
   // ══════════ Étape 5 : export ══════════
 
   function exportName(v) {
-    const s = slug(v.name);
-    return "photo-finale" + (s ? "-" + s : "") + ".webp";
+    return (v.key || slug(v.name) || "visuel") + ".webp";
+  }
+
+  // Normalise le composite au format livrable : 1080×1350 (4:5), letterbox sur le
+  // fond choisi, puis fond corrigé à la couleur EXACTE (tolérance 2 niveaux/canal,
+  // flood depuis les bords qui s'arrête aux frontières nettes du sujet).
+  function finalize45(comp) {
+    const [br, bgc, bb] = currentBg().rgb;
+    const W = 1080, H = 1350;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = currentBg().hex;
+    ctx.fillRect(0, 0, W, H);
+    const sc = Math.min(W / comp.width, H / comp.height);
+    const dw = Math.round(comp.width * sc), dh = Math.round(comp.height * sc);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(comp, (W - dw) / 2, (H - dh) / 2, dw, dh);
+
+    const id = ctx.getImageData(0, 0, W, H);
+    const d = id.data;
+    const off = p => p * 4;
+    const nearBg = p => {
+      const i = off(p);
+      return Math.abs(d[i] - br) + Math.abs(d[i + 1] - bgc) + Math.abs(d[i + 2] - bb) < 75;
+    };
+    const exact = p => {
+      const i = off(p);
+      return Math.abs(d[i] - br) <= 2 && Math.abs(d[i + 1] - bgc) <= 2 && Math.abs(d[i + 2] - bb) <= 2;
+    };
+    // Dérive de fond détectée aux coins ? → correction par flood borné.
+    const corners = [0, W - 1, (H - 1) * W, (H - 1) * W + W - 1];
+    if (!corners.every(exact)) {
+      const STEP = 24;
+      const stepOk = (a, b2) => {
+        const i = off(a), j = off(b2);
+        return Math.abs(d[i] - d[j]) + Math.abs(d[i + 1] - d[j + 1]) + Math.abs(d[i + 2] - d[j + 2]) < STEP;
+      };
+      const seen = new Uint8Array(W * H);
+      const queue = new Int32Array(W * H);
+      let head = 0, tail = 0;
+      const seed = p => { if (!seen[p] && nearBg(p)) { seen[p] = 1; queue[tail++] = p; } };
+      const grow = (f, p) => { if (!seen[p] && nearBg(p) && stepOk(f, p)) { seen[p] = 1; queue[tail++] = p; } };
+      for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+      for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
+      while (head < tail) {
+        const p = queue[head++];
+        const x = p % W, y = (p / W) | 0;
+        if (x > 0) grow(p, p - 1);
+        if (x < W - 1) grow(p, p + 1);
+        if (y > 0) grow(p, p - W);
+        if (y < H - 1) grow(p, p + W);
+      }
+      for (let p = 0; p < W * H; p++) {
+        if (seen[p]) { const i = off(p); d[i] = br; d[i + 1] = bgc; d[i + 2] = bb; }
+      }
+      ctx.putImageData(id, 0, 0);
+    }
+    return c;
   }
 
   function renderFinal() {
@@ -1673,13 +1203,14 @@ const App = { state: {}, refreshLogoList: null };
     const comp = Placement.compositeFullRes();
     App.state.masterCanvas = comp;
     syncAliases();
+    const final = finalize45(comp);
     const c = el("canvas-final");
-    const s = Math.min(1, 760 / comp.width);
-    c.width = comp.width * s; c.height = comp.height * s;
-    c.getContext("2d").drawImage(comp, 0, 0, c.width, c.height);
+    const sc = Math.min(1, 620 / final.width);
+    c.width = final.width * sc; c.height = final.height * sc;
+    c.getContext("2d").drawImage(final, 0, 0, c.width, c.height);
     const v = currentView();
     el("export-info").textContent =
-      `Vue « ${v.name} » — master ${comp.width} × ${comp.height} px, ${App.state.logos.length} logo(s) posé(s).`;
+      `« ${exportName(v)} » — 1080 × 1350 (4:5), fond ${currentBg().hex}, ${App.state.logos.length} logo(s) posé(s).`;
   }
 
   async function exportCurrent() {
@@ -1688,7 +1219,8 @@ const App = { state: {}, refreshLogoList: null };
     showBusy("Optimisation WebP…");
     try {
       const comp = App.state.masterCanvas || Placement.compositeFullRes();
-      const { blob, quality, overweight } = await Placement.toWebPUnder(comp, 200);
+      const final = finalize45(comp);
+      const { blob, quality, overweight } = await Placement.toWebPUnder(final, 200);
       const url = URL.createObjectURL(blob);
       const link = el("link-download");
       link.href = url;
@@ -1699,7 +1231,7 @@ const App = { state: {}, refreshLogoList: null };
       renderViewSwitcher();
       Persist.saveSoon();
       el("export-info").textContent =
-        `${comp.width} × ${comp.height} px — ${(blob.size / 1024).toFixed(0)} Ko (qualité WebP ${Math.round(quality * 100)} %). ` +
+        `1080 × 1350 — ${(blob.size / 1024).toFixed(0)} Ko (qualité WebP ${Math.round(quality * 100)} %). ` +
         (overweight
           ? "⚠ Impossible de rester sous 200 Ko sans dégradation excessive : fichier livré au plus proche."
           : "Logos posés depuis les pixels de la photo source.");
@@ -1712,14 +1244,14 @@ const App = { state: {}, refreshLogoList: null };
     syncAliases();
     const ready = App.state.views.filter(v => isVue(v) && v.gen);
     if (!ready.length) return;
-    showBusy("Export de toutes les vues…");
+    showBusy("Export de tous les visuels…");
     try {
       for (const v of ready) {
         selectView(App.state.views.indexOf(v), { force: true });
         const comp = Placement.compositeFullRes();
         App.state.masterCanvas = comp;
         syncAliases();
-        const { blob } = await Placement.toWebPUnder(comp, 200);
+        const { blob } = await Placement.toWebPUnder(finalize45(comp), 200);
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = exportName(v);
@@ -1731,7 +1263,7 @@ const App = { state: {}, refreshLogoList: null };
       renderFinal();
       Persist.saveSoon();
       el("export-info").textContent =
-        `${ready.length} vue(s) exportée(s). Si le navigateur n'a téléchargé que la première, autorise les téléchargements multiples pour ce site.`;
+        `${ready.length} visuel(s) exporté(s) en 1080 × 1350. Si le navigateur n'a téléchargé que le premier, autorise les téléchargements multiples pour ce site.`;
     } finally {
       hideBusy();
     }
@@ -1805,8 +1337,7 @@ const App = { state: {}, refreshLogoList: null };
         }
         selectView(idx, { force: true });
         renderLogoLibrary();
-        renderViewsList();
-        updateGenerateButton();
+        syncSlots();
         const v = currentView();
         if (!v || !v.gen) goStep(1);
         else if (!v.logos.length) goStep(2);
@@ -1829,13 +1360,9 @@ const App = { state: {}, refreshLogoList: null };
   document.addEventListener("DOMContentLoaded", () => {
     tickClock();
     setInterval(tickClock, 30000);
+    wirePrepare();
     resetProject(false);
     wireAuth();
-    wireProject();
-    wirePresets();
-    wireProfileCards();
-    wireQuestionnaire();
-    wireSource();
     wireInventory();
     wireCleanZone();
     wireNav();
