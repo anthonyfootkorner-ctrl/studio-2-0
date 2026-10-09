@@ -158,6 +158,9 @@ const App = { state: {}, refreshLogoList: null };
 
   function viewStateLabel(v) {
     if (!v.gen) return { txt: "à générer", cls: "todo" };
+    if (!v.validated && (v.kind === "packshot" || v.key === "mannequin-face")) {
+      return { txt: "à valider", cls: "todo" };
+    }
     if (v.exported) return { txt: "exportée ✓", cls: "ok" };
     const masked = v.logos.filter(l => l.mask).length;
     if (v.logos.length === 0) return { txt: "générée", cls: "gen" };
@@ -333,14 +336,19 @@ const App = { state: {}, refreshLogoList: null };
   }
 
   // Prochaine phase du pipeline : packshots → porté face (validation identité) → le reste.
+  // L'ordre du skill est STRICT : packshots générés PUIS validés un par un,
+  // ensuite seulement le mannequin face, validé à son tour, puis le reste.
   function pipelineStage() {
     const slots = App.state.views || [];
     const packshots = slots.filter(v => v.kind === "packshot");
     if (!packshots.length) return null;
     const p = packshots.filter(v => !v.gen);
     if (p.length) return { phase: "packshots", targets: p };
+    const pv = packshots.filter(v => !v.validated);
+    if (pv.length) return { phase: "valider-packshots", targets: pv };
     const face = slots.find(v => v.key === "mannequin-face");
     if (face && !face.gen) return { phase: "porte-face", targets: [face] };
+    if (face && !face.validated) return { phase: "valider-face", targets: [face] };
     const rest = slots.filter(v => v.kind === "worn" && !v.gen);
     if (rest.length) return { phase: "reste", targets: rest };
     return { phase: "fini", targets: [] };
@@ -353,6 +361,10 @@ const App = { state: {}, refreshLogoList: null };
     if (st.phase === "packshots") {
       return `Créer ${st.targets.length > 1 ? "les " + st.targets.length + " packshots" : "le packshot"} (~${euro(st.targets.length)})`;
     }
+    if (st.phase === "valider-packshots") {
+      return "Valide " + (st.targets.length > 1 ? "les packshots" : "le packshot « " + st.targets[0].key + " »") + " à l'étape Génération";
+    }
+    if (st.phase === "valider-face") return "Valide le mannequin FACE à l'étape Génération";
     if (st.phase === "porte-face") return "Créer la vue portée FACE (~" + euro(1) + ")";
     if (st.phase === "reste") {
       return `Créer ${st.targets.length > 1 ? "les " + st.targets.length + " vues restantes" : "la dernière vue"} avec ce mannequin (~${euro(st.targets.length)})`;
@@ -363,7 +375,7 @@ const App = { state: {}, refreshLogoList: null };
   function updateGenerateButton() {
     const st = pipelineStage();
     const btn = el("btn-generate");
-    btn.disabled = !st || st.phase === "fini" ||
+    btn.disabled = !st || st.phase === "fini" || st.phase.startsWith("valider") ||
       (st.phase !== "packshots" && !el("m-desc").value.trim());
     btn.textContent = (st && st.phase !== "packshots" && !el("m-desc").value.trim())
       ? "⚠ Décris d'abord le mannequin"
@@ -791,6 +803,7 @@ const App = { state: {}, refreshLogoList: null };
     gen.height = img.naturalHeight;
     gen.getContext("2d").drawImage(img, 0, 0);
     view.gen = gen;
+    view.validated = false;
     view.exported = false;
     if (view === currentView()) App.state.genCanvas = gen;
   }
@@ -839,10 +852,27 @@ const App = { state: {}, refreshLogoList: null };
 
   function updateStep2Buttons() {
     const st = pipelineStage();
+    const v = currentView();
+    const needsValidation = v && v.gen && !v.validated &&
+      (v.kind === "packshot" || v.key === "mannequin-face");
+    const bVal = el("btn-validate-view");
+    bVal.classList.toggle("hidden", !needsValidation);
+    if (needsValidation) {
+      bVal.textContent = v.kind === "packshot"
+        ? `✓ Packshot « ${v.key} » propre — je valide`
+        : "✓ Mannequin conforme — je valide";
+    }
     const btn = el("btn-generate-rest");
-    const pending = st && st.phase !== "fini";
-    btn.classList.toggle("hidden", !pending);
-    if (pending) btn.textContent = stageLabel(st);
+    const actionable = st && (st.phase === "packshots" || st.phase === "porte-face" || st.phase === "reste");
+    btn.classList.toggle("hidden", !actionable);
+    if (actionable) btn.textContent = stageLabel(st);
+    // pendant une phase de validation, le bouton suivant est remplacé par une consigne
+    const hint = el("gen-next-hint");
+    if (hint) {
+      const wait = st && st.phase.startsWith("valider") && !needsValidation;
+      hint.classList.toggle("hidden", !wait);
+      if (wait) hint.textContent = stageLabel(st) + " — sélectionne la vue dans la barre ci-dessus.";
+    }
   }
 
   async function regenerateCurrent() {
@@ -1418,6 +1448,22 @@ const App = { state: {}, refreshLogoList: null };
       Persist.saveSoon();
     }));
     el("btn-regenerate").addEventListener("click", regenerateCurrent);
+    el("btn-validate-view").addEventListener("click", () => {
+      const v = currentView();
+      if (!v || !v.gen) return;
+      v.validated = true;
+      Persist.saveSoon();
+      renderViewSwitcher();
+      updateStep2Buttons();
+      updateGenerateButton();
+      const st = pipelineStage();
+      el("gen-msg").className = "msg ok";
+      el("gen-msg").textContent = st && st.phase.startsWith("valider")
+        ? "Validé. " + stageLabel(st) + "."
+        : st && st.phase === "fini"
+          ? "Validé — toutes les vues sont prêtes."
+          : "Validé. Tu peux lancer la suite : « " + stageLabel(st) + " ».";
+    });
     el("onion-opacity").addEventListener("input", renderCompare);
     el("btn-accept-gen").addEventListener("click", () => goStep(3));
     el("btn-goto-placement").addEventListener("click", () => goStep(4));
